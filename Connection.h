@@ -7,10 +7,15 @@
 
 
 #include <cstdio>
+#include <list>
 
+// Connection should be EventListener
 class Connection {
 public:
   size_t write();
+  void addDataListener();
+private:
+  void onData_();
 };
 
 
