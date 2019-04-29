@@ -10,6 +10,7 @@
 #include <list>
 #include <unordered_map>
 #include <uv.h>
+#include <memory>
 #include "Connection.h"
 
 // TODO: 先不考虑protocol, 暂且当成socks4a的proxy实现
@@ -22,6 +23,9 @@ public:
   ProxyServer(uv_loop_t* l): loop_(l) { }
   uv_loop_t* loop() const {
     return loop_;
+  }
+  uv_stream_t *stream() {
+    return (uv_stream_t *) &server_;
   }
   int listen(uint16_t port);
   void addConnectionListener(ConnectionListener);

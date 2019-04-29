@@ -12,14 +12,19 @@ void ProxyServer::addConnectionListener(ProxyServer::ConnectionListener listener
   listener_.push_back(listener);
 }
 
+// static
+// libuv callback cannot be class member function
 void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
   if (status < 0) {
     printf("on_new_connection error %s\n", uv_strerror(status));
     return;
   }
   printf("new connection comes");
-  Connection *c = new Connection(uv_default_loop());
-  if (uv_accept(server, ))
+  std::unique_ptr<Connection> cp = std::make_unique<Connection>();
+  if (!uv_accept(stream(), cp->stream())) {
+    // connection accepted
+  }
+
 }
 
 int ProxyServer::listen(uint16_t port) {
@@ -35,5 +40,6 @@ int ProxyServer::listen(uint16_t port) {
   if (r < 0) {
     return r;
   }
+  // TODO: 不应该放在这里实现
   return uv_run(loop_, UV_RUN_DEFAULT);
 }
