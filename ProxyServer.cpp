@@ -18,6 +18,8 @@ void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
     return;
   }
   printf("new connection comes");
+  Connection *c = new Connection(uv_default_loop());
+  if (uv_accept(server, ))
 }
 
 int ProxyServer::listen(uint16_t port) {
@@ -27,6 +29,8 @@ int ProxyServer::listen(uint16_t port) {
   sockaddr_in addr;
   uv_ip4_addr(host, port, &addr);
   uv_tcp_bind(&server_, (const sockaddr *)&addr, 0);
+  server_.data = this;
+  // 将实例绑定到server_.data里应该也是可以的
   int r = uv_listen((uv_stream_t *)&server_, 1, on_uv_connection);
   if (r < 0) {
     return r;

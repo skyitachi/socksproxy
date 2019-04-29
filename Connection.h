@@ -8,14 +8,17 @@
 
 #include <cstdio>
 #include <list>
+#include <uv.h>
 
 // Connection should be EventListener
 class Connection {
 public:
+  Connection(uv_loop_t *l): loop_(l) {}
   size_t write();
   void addDataListener();
 private:
   void onData_();
+  uv_loop_t* loop_;
 };
 
 

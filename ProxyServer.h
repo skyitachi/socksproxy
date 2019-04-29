@@ -10,8 +10,7 @@
 #include <list>
 #include <unordered_map>
 #include <uv.h>
-
-class Connection;
+#include "Connection.h"
 
 // TODO: 先不考虑protocol, 暂且当成socks4a的proxy实现
 class ProxyServer {
@@ -28,7 +27,7 @@ public:
   void addConnectionListener(ConnectionListener);
 private:
   void onConnection_(); // proxy connection callback
-  static void on_uv_connection(uv_stream_t*, int); // libuv_callbacks
+  static void on_uv_connection(uv_stream_t*, int); // uv_listen callbacks
   std::list<ConnectionListener> listener_;
   std::unordered_map<Connection*, Connection*> pipe_;
   uv_loop_t* loop_;
