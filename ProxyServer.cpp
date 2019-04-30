@@ -4,8 +4,31 @@
 
 #include "ProxyServer.h"
 
-void ProxyServer::onConnection_() {
+static void on_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t* buf) {
+  Connection* conn = (Connection* )handle->data;
+  buf->base = conn->buf;
+  buf->len = sizeof(conn->buf);
+}
 
+static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
+  if (nread < 0) {
+    // TODO: error happens
+    
+  } else if (nread < SOCKS4A_HEADER_LENGTH) {
+    return;
+  }
+  Connection* conn = (Connection *)stream->data;
+  assert(conn);
+  // socks4a proxy
+  if (uvBuf->base[0] == 0x04 && uvBuf->base[1] == 0x01) {
+    printf("client request received\n");
+  }
+}
+
+void ProxyServer::onConnection_(Connection* src, Connection* upstream) {
+  for(auto listener: listener_) {
+    listener(src, upstream);
+  }
 }
 
 void ProxyServer::addConnectionListener(ProxyServer::ConnectionListener listener) {
@@ -19,10 +42,12 @@ void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
     printf("on_new_connection error %s\n", uv_strerror(status));
     return;
   }
-  printf("new connection comes");
-  std::unique_ptr<Connection> cp = std::make_unique<Connection>();
-  if (!uv_accept(stream(), cp->stream())) {
+  ProxyServer* serverCtx = (ProxyServer* ) server->data;
+  assert(serverCtx);
+  Connection* conn = new Connection();
+  if (!uv_accept(server, conn->stream())) {
     // connection accepted
+    uv_read_start(conn->stream(), on_uv_alloc, on_uv_read);
   }
 
 }

@@ -1,18 +1,8 @@
 #include <iostream>
 
-#include "EventListener.h"
 #include "ProxyServer.h"
 
-void testCb() {
-  std::cout << "in the testCb callback" << std::endl;
-}
-
 int main() {
-  std::cout << "Hello, World!" << std::endl;
-  EventsEmitter emitter;
-  emitter.registerConnectionListener(testCb);
-  emitter.onConnection();
-  
   ProxyServer server;
   
   int r = server.listen(12321);

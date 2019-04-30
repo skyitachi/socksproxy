@@ -15,6 +15,8 @@ class Connection {
 public:
   Connection() {
     tcp_ = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
+    // set context
+    tcp_->data = this;
     loop_ = uv_default_loop();
     uv_tcp_init(loop_, tcp_);
   }
@@ -28,6 +30,7 @@ public:
   }
   size_t write();
   void addDataListener();
+  char buf[4096];
 private:
   void onData_();
   uv_tcp_t* tcp_;

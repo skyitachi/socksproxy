@@ -11,7 +11,10 @@
 #include <unordered_map>
 #include <uv.h>
 #include <memory>
+#include <assert.h>
 #include "Connection.h"
+
+#define SOCKS4A_HEADER_LENGTH 8
 
 // TODO: 先不考虑protocol, 暂且当成socks4a的proxy实现
 class ProxyServer {
@@ -30,7 +33,7 @@ public:
   int listen(uint16_t port);
   void addConnectionListener(ConnectionListener);
 private:
-  void onConnection_(); // proxy connection callback
+  void onConnection_(Connection*, Connection*); // proxy connection callback
   static void on_uv_connection(uv_stream_t*, int); // uv_listen callbacks
   std::list<ConnectionListener> listener_;
   std::unordered_map<Connection*, Connection*> pipe_;
