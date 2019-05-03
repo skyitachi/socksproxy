@@ -125,7 +125,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	conn.Write([]byte("GET / HTTP/1.0\r\nHost: httpbin.org\r\n\r\n"))
+	conn.Write([]byte("GET / HTTP/1.0\r\nHost: baidu.com\r\n\r\n"))
 	n, err := io.Copy(os.Stdout, conn)
 	if err != nil {
 		panic(err)

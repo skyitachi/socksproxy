@@ -4,6 +4,9 @@
 
 #include "ProxyServer.h"
 
+static char handshake[8] = {0x00, 0x5a, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47};
+static uv_buf_t uvBufHandshake = uv_buf_init(handshake, sizeof(handshake));
+
 static int readPort(const char *buf, ssize_t offset) {
   return ((unsigned char)buf[0 + offset] << 8) + (unsigned char)buf[1 + offset];
 }
@@ -20,12 +23,52 @@ static Addr* parseAddr(const char *buf, ssize_t offset) {
   return addr;
 }
 
-static void on_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t* buf) {
+static void on_uv_client_alloc(uv_handle_t *handle, size_t suggest_size, uv_buf_t *buf) {
   Connection* conn = (Connection* )handle->data;
-  buf->base = conn->buf;
-  buf->len = sizeof(conn->buf);
+  assert(conn);
+  buf->base = conn->buf + conn->clientOffset;
+  buf->len = sizeof(conn->buf) - conn->clientOffset;
+  if (buf->len < 0) {
+     buf->len = 0;
+  }
 }
 
+static void on_proxy_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t* buf) {
+  Connection* conn = (Connection* )handle->data;
+  assert(conn);
+  buf->base = conn->upstreamBuf;
+  buf->len = sizeof(conn->upstreamBuf);
+}
+
+static void on_proxy_client_write_done(uv_write_t* req, int status) {
+  if (status < 0) {
+    printf("proxy_write error: %s\n", uv_strerror(status));
+    return;
+  }
+  Connection *conn = (Connection* ) req->data;
+  assert(conn);
+  conn->clientOffset = 0;
+  printf("proxy_write right\n");
+
+}
+
+static void on_proxy_write_done(uv_write_t* req, int status) {
+  if (status < 0) {
+    printf("proxy_write error: %s\n", uv_strerror(status));
+    return;
+  }
+  printf("proxy_write right\n");
+}
+
+static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
+  if (nread > 0) {
+    Connection* conn = (Connection*) stream->data;
+    assert(conn);
+    uv_write(conn->writeReq, conn->stream(), uvBuf, 1, on_proxy_write_done);
+  }
+}
+
+// proxy connect to server
 static void on_uv_connect(uv_connect_t* req, int status) {
   if (status < 0) {
     printf("connect error: %s\n", uv_strerror(status));
@@ -33,9 +76,14 @@ static void on_uv_connect(uv_connect_t* req, int status) {
   }
   Connection *conn = (Connection* )req->data;
   assert(conn);
-  
+  printf("proxy connect to server successfully\n");
+  uv_read_start(conn->upstream(), on_proxy_uv_alloc, on_proxy_uv_read);
+  // connected
+  conn->status = 1;
+
 }
 
+// proxy read client data
 static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
   if (nread < 0) {
     // TODO: error happens
@@ -50,9 +98,29 @@ static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf
     printf("client request received\n");
     // TODO: parse remote address
     Addr *addr = parseAddr(uvBuf->base, 2);
+    printf("remote address is %s:%d\n", addr->ip, addr->port);
     struct sockaddr_in dest;
     uv_ip4_addr(addr->ip, addr->port, &dest);
     uv_tcp_connect(conn->connectReq, conn->remoteTcp, (const struct sockaddr* )&dest, on_uv_connect);
+
+    // start write hanshake data
+    uv_write(conn->writeReq, conn->stream(), &uvBufHandshake, 1, on_proxy_write_done);
+  } else {
+    printf("receive payload\n");
+    // transfer data
+    if (conn->status) {
+      printf("conn connected to remote while reading");
+      if (conn->clientOffset > 0) {
+        // 有些数据还在 buf里，需要即时发送
+        uv_buf_t tmp = uv_buf_init(conn->buf, nread + conn->clientOffset);
+        uv_write(conn->writeReq, conn->upstream(), &tmp, 1, on_proxy_client_write_done);
+      } else {
+        uv_write(conn->writeReq, conn->upstream(), uvBuf, 1, on_proxy_write_done);
+      }
+    } else {
+      // TODO: 超出 buffer size限制的情况
+      conn->clientOffset += nread;
+    }
   }
 }
 
@@ -78,7 +146,7 @@ void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
   Connection* conn = new Connection();
   if (!uv_accept(server, conn->stream())) {
     // connection accepted
-    uv_read_start(conn->stream(), on_uv_alloc, on_uv_read);
+    uv_read_start(conn->stream(), on_uv_client_alloc, on_uv_read);
   }
 
 }

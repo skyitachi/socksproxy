@@ -11,8 +11,14 @@
 #include <uv.h>
 
 // Connection should be EventListener
+
 class Connection {
 public:
+  enum Status {
+    INIT,
+    CONNECTING,
+    CONNECTED
+  };
   Connection() {
     tcp_ = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
     // set context
@@ -40,14 +46,24 @@ public:
   uv_stream_t *stream() {
     return (uv_stream_t *)tcp_;
   }
-  
+
+  // proxy to server
+  uv_stream_t *upstream() {
+    return (uv_stream_t *)pToSProxy_;
+  }
+
   void write(char *buf, size_t len);
   void sendHeader();
   void addDataListener();
   char buf[4096];
+  // buf 的 offset
+  size_t clientOffset = 0;
+  char upstreamBuf[4096];
+  // TODO: client to proxy, proxy to server share same writeReq ???
   uv_write_t* writeReq;
   uv_connect_t* connectReq;
   uv_tcp_t* remoteTcp;
+  int status = 0;
 private:
   void onData_();
   // client to proxy
