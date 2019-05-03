@@ -4,10 +4,36 @@
 
 #include "ProxyServer.h"
 
+static int readPort(const char *buf, ssize_t offset) {
+  return ((unsigned char)buf[0 + offset] << 8) + (unsigned char)buf[1 + offset];
+}
+
+static Addr* parseAddr(const char *buf, ssize_t offset) {
+  Addr *addr = (Addr *)malloc(sizeof(Addr));
+  addr->port = readPort(buf, offset);
+  sprintf(addr->ip, "%d.%d.%d.%d",
+          (unsigned char)buf[2+offset],
+          (unsigned char)buf[3+offset],
+          (unsigned char)buf[4+offset],
+          (unsigned char)buf[5+offset]
+  );
+  return addr;
+}
+
 static void on_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t* buf) {
   Connection* conn = (Connection* )handle->data;
   buf->base = conn->buf;
   buf->len = sizeof(conn->buf);
+}
+
+static void on_uv_connect(uv_connect_t* req, int status) {
+  if (status < 0) {
+    printf("connect error: %s\n", uv_strerror(status));
+    return;
+  }
+  Connection *conn = (Connection* )req->data;
+  assert(conn);
+  
 }
 
 static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
@@ -22,12 +48,17 @@ static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf
   // socks4a proxy
   if (uvBuf->base[0] == 0x04 && uvBuf->base[1] == 0x01) {
     printf("client request received\n");
+    // TODO: parse remote address
+    Addr *addr = parseAddr(uvBuf->base, 2);
+    struct sockaddr_in dest;
+    uv_ip4_addr(addr->ip, addr->port, &dest);
+    uv_tcp_connect(conn->connectReq, conn->remoteTcp, (const struct sockaddr* )&dest, on_uv_connect);
   }
 }
 
-void ProxyServer::onConnection_(Connection* src, Connection* upstream) {
+void ProxyServer::onConnection_(Connection* tunnel) {
   for(auto listener: listener_) {
-    listener(src, upstream);
+    listener(tunnel);
   }
 }
 
