@@ -35,8 +35,10 @@ public:
     connectReq = (uv_connect_t* )malloc(sizeof(uv_connect_t));
     connectReq->data = this;
     loop_ = uv_default_loop();
+
     uv_tcp_init(loop_, tcp_);
     uv_tcp_init(loop_, pToSProxy_);
+    uv_tcp_init(loop_, remoteTcp);
   }
   ~Connection() {
     uv_close((uv_handle_t *)tcp_, NULL);
@@ -49,7 +51,7 @@ public:
 
   // proxy to server
   uv_stream_t *upstream() {
-    return (uv_stream_t *)pToSProxy_;
+    return (uv_stream_t *) remoteTcp;
   }
 
   void write(char *buf, size_t len);

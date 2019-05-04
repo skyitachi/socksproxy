@@ -42,7 +42,7 @@ static void on_proxy_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t
 
 static void on_proxy_client_write_done(uv_write_t* req, int status) {
   if (status < 0) {
-    printf("proxy_write error: %s\n", uv_strerror(status));
+    printf("proxy_write client error: %s\n", uv_strerror(status));
     return;
   }
   Connection *conn = (Connection* ) req->data;
@@ -64,7 +64,9 @@ static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t*
   if (nread > 0) {
     Connection* conn = (Connection*) stream->data;
     assert(conn);
-    uv_write(conn->writeReq, conn->stream(), uvBuf, 1, on_proxy_write_done);
+    // NOTE: should set buf length
+    uv_buf_t tmp = uv_buf_init(uvBuf->base, nread);
+    uv_write(conn->writeReq, conn->stream(), &tmp, 1, on_proxy_write_done);
   }
 }
 
@@ -80,20 +82,29 @@ static void on_uv_connect(uv_connect_t* req, int status) {
   uv_read_start(conn->upstream(), on_proxy_uv_alloc, on_proxy_uv_read);
   // connected
   conn->status = 1;
-
+  if (conn->clientOffset) {
+    printf("current buffer is sending out %zd\n", conn->clientOffset);
+    uv_buf_t buffered = uv_buf_init(conn->buf, conn->clientOffset);
+    uv_write(conn->writeReq, conn->upstream(), &buffered, 1, on_proxy_client_write_done);
+  }
 }
 
 // proxy read client data
 static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
   if (nread < 0) {
     // TODO: error happens
-    
-  } else if (nread < SOCKS4A_HEADER_LENGTH) {
+    printf("read error: %s\n", uv_strerror(nread));
     return;
   }
   Connection* conn = (Connection *)stream->data;
   assert(conn);
+  if (!conn->status && nread < SOCKS4A_HEADER_LENGTH + 1) {
+    printf("receive too small data\n");
+    conn->clientOffset += nread;
+    return;
+  }
   // socks4a proxy
+  // client connect packet
   if (uvBuf->base[0] == 0x04 && uvBuf->base[1] == 0x01) {
     printf("client request received\n");
     // TODO: parse remote address
@@ -106,20 +117,22 @@ static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf
     // start write hanshake data
     uv_write(conn->writeReq, conn->stream(), &uvBufHandshake, 1, on_proxy_write_done);
   } else {
-    printf("receive payload\n");
+    printf("receive payload: %ld bytes\n", nread);
     // transfer data
     if (conn->status) {
-      printf("conn connected to remote while reading");
       if (conn->clientOffset > 0) {
         // 有些数据还在 buf里，需要即时发送
         uv_buf_t tmp = uv_buf_init(conn->buf, nread + conn->clientOffset);
         uv_write(conn->writeReq, conn->upstream(), &tmp, 1, on_proxy_client_write_done);
       } else {
-        uv_write(conn->writeReq, conn->upstream(), uvBuf, 1, on_proxy_write_done);
+        // NOTE: proxy send data to upstream server
+        uv_buf_t tmp = uv_buf_init(uvBuf->base, nread);
+        uv_write(conn->writeReq, conn->upstream(), &tmp, 1, on_proxy_write_done);
       }
     } else {
       // TODO: 超出 buffer size限制的情况
       conn->clientOffset += nread;
+      printf("receive bytes just in buffer\n");
     }
   }
 }
@@ -164,6 +177,7 @@ int ProxyServer::listen(uint16_t port) {
   if (r < 0) {
     return r;
   }
+  printf("listened ok\n");
   // TODO: 不应该放在这里实现
   return uv_run(loop_, UV_RUN_DEFAULT);
 }
