@@ -3,7 +3,7 @@
 #include "ProxyServer.h"
 
 int main() {
-  ProxyServer server;
+  socks::ProxyServer server;
   
   int r = server.listen(12321);
   if (r < 0) {

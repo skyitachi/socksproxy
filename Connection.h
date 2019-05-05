@@ -9,35 +9,38 @@
 #include <cstdio>
 #include <list>
 #include <uv.h>
+#include "util.h"
 
+#define SOCKS4A_HEADER_LENGTH 9
 // Connection should be EventListener
-
+namespace socks {
 class Connection {
 public:
   enum Status {
     INIT,
+    CLIENT_REQUEST,
     CONNECTING,
-    CONNECTED
+    CONNECTED,
+    SERVER_CONNECT_ERROR,
+    DATA_PENDING,
   };
   Connection() {
-    tcp_ = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
     // set context
+    tcp_ = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
     tcp_->data = this;
     
     remoteTcp = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
-    // set context
     remoteTcp->data = this;
     
-    pToSProxy_ = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
-    pToSProxy_->data = this;
     writeReq = (uv_write_t* )malloc(sizeof(uv_write_t));
     writeReq->data = this;
+    
     connectReq = (uv_connect_t* )malloc(sizeof(uv_connect_t));
     connectReq->data = this;
+    
     loop_ = uv_default_loop();
 
     uv_tcp_init(loop_, tcp_);
-    uv_tcp_init(loop_, pToSProxy_);
     uv_tcp_init(loop_, remoteTcp);
   }
   ~Connection() {
@@ -54,28 +57,31 @@ public:
     return (uv_stream_t *) remoteTcp;
   }
 
-  void write(char *buf, size_t len);
   void sendHeader();
-  void addDataListener();
   char buf[4096];
   // buf 的 offset
   size_t clientOffset = 0;
+  size_t pendingLen = 0;
   char upstreamBuf[4096];
   // TODO: client to proxy, proxy to server share same writeReq ???
   uv_write_t* writeReq;
   uv_connect_t* connectReq;
+  // proxy to upstream connection
   uv_tcp_t* remoteTcp;
-  int status = 0;
+  Status status = INIT;
+  
+  void onData(char* receiveBuf, size_t len);
+  void writeToClient(char* buf, size_t len);
+  void writeToProxy(char* buf, size_t len);
+  void connectToRemote(const char* ip, uint16_t port);
+  
 private:
-  void onData_();
+  void write(char *buf, size_t, uv_stream_t*, uv_write_cb);
   // client to proxy
   uv_tcp_t* tcp_;
-  // proxy to server
   
-  // proxy to server;
-  uv_tcp_t* pToSProxy_;
   uv_loop_t* loop_;
 };
 
-
+};
 #endif //SOCKSPROXY_CONNECTION_H

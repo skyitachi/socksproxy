@@ -12,14 +12,9 @@
 #include <memory>
 #include <assert.h>
 #include "Connection.h"
+#include "util.h"
 
-#define SOCKS4A_HEADER_LENGTH 8
-
-// TODO: 先不考虑protocol, 暂且当成socks4a的proxy实现
-struct Addr {
-  char ip[16];
-  int port;
-};
+namespace socks {
 
 class ProxyServer {
 public:
@@ -43,6 +38,6 @@ private:
   uv_loop_t* loop_;
   uv_tcp_t server_;
 };
-
+};
 
 #endif //SOCKSPROXY_PROXYSERVER_H
