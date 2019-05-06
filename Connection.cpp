@@ -38,14 +38,19 @@ static void on_write_to_upstream_done(uv_write_t* req, int status) {
 
 // proxy read upstream
 static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
+  Connection* conn = (Connection*) stream->data;
+  assert(conn);
   if (nread < 0) {
-    printf("on_proxy_uv_read error %s\n", uv_strerror(nread));
-    // TODO: error handle
+    if (nread != UV_EOF) {
+      printf("on_proxy_uv_read error %s\n", uv_strerror(nread));
+    } else {
+      // TODO, retry connect to server
+      conn->status = Connection::SERVER_CLOSE;
+//      conn->freeRemoteTcp();
+    }
     return;
   }
   if (nread > 0) {
-    Connection* conn = (Connection*) stream->data;
-    assert(conn);
     conn->writeToClient(uvBuf->base, nread);
   }
 }
@@ -57,6 +62,10 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
     conn->status = Connection::SERVER_CONNECT_ERROR;
     return;
   }
+  // start write handshake data, connected then reply header
+  // https://www.openssh.com/txt/socks4.protocol
+  conn->sendHeader();
+  
   if (status == Connection::DATA_PENDING) {
     conn->writeToProxy(conn->buf + conn->clientOffset, conn->pendingLen);
   }
@@ -68,6 +77,8 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
 void Connection::write(char* buf, size_t len, uv_stream_t* stream, uv_write_cb cb) {
   uv_buf_t uvBuf;
   uvBuf = uv_buf_init(buf, len);
+  uv_write_t* writeReq = (uv_write_t* )malloc(sizeof(uv_write_t));
+  writeReq->data = this;
   uv_write(writeReq, stream, &uvBuf, 1, cb);
 }
 
@@ -90,21 +101,18 @@ void Connection::connectToRemote(const char *ip, uint16_t port) {
 }
 
 void Connection::onData(char* receiveBuf, size_t len) {
-  printf("receive data bytes %d\n", len);
+  printf("receive data bytes %zu, conn status %d\n", len, status);
   if (len < SOCKS4A_HEADER_LENGTH && status == INIT) {
     clientOffset += len;
     return;
   }
-  // TODO: 需要判断是否应该从conn->buf中读取
-  if (receiveBuf[0] == 0x04 && receiveBuf[1] == 0x01) {
+  // client connect request
+  if (receiveBuf[0] == 0x04 && receiveBuf[1] == 0x01 && status == INIT) {
     status = CLIENT_REQUEST;
-    const util::Addr addr = util::parseAddr(receiveBuf, 2);
-    printf("remote address is %s:%d\n", addr.ip, addr.port);
+    remoteAddr = util::parseAddr(receiveBuf, 2);
+    printf("remote address is %s:%d\n", remoteAddr.ip, remoteAddr.port);
     
-    connectToRemote(addr.ip, addr.port);
-  
-    // start write handshake data
-    sendHeader();
+    connectToRemote(remoteAddr.ip, remoteAddr.port);
     
     // read username
     size_t userNameLen = strlen(receiveBuf + SOCKS4A_HEADER_LENGTH - 1);
@@ -116,6 +124,9 @@ void Connection::onData(char* receiveBuf, size_t len) {
       clientOffset = userNameLen  + SOCKS4A_HEADER_LENGTH;
       pendingLen = len - clientOffset;
       status = DATA_PENDING;
+    } else {
+      clientOffset = 0;
+      pendingLen = 0;
     }
   } else if (status == CONNECTED) {
     writeToProxy(receiveBuf, len);

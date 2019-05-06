@@ -18,16 +18,19 @@ static void on_uv_client_alloc(uv_handle_t *handle, size_t suggest_size, uv_buf_
 
 // proxy read client data
 static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
-  if (nread < 0) {
-    // TODO: error happens
-    printf("read error: %s\n", uv_strerror(nread));
-    return;
-  }
   Connection* conn = (Connection *)stream->data;
   assert(conn);
-  
-  // TODO: 这里的buf需要计算好offset吗
-  conn->onData(uvBuf->base, nread);
+  if (nread < 0) {
+    if (nread != UV_EOF) {
+      printf("read error: %s\n", uv_strerror(nread));
+    } else {
+      // clear source
+//      conn->freeTcp();
+//      delete conn;
+    }
+    return;
+  }
+  conn->onData(conn->buf, nread + conn->clientOffset);
 }
 
 void ProxyServer::onConnection_(Connection* tunnel) {
@@ -51,6 +54,7 @@ void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
   assert(serverCtx);
   // create connection here
   Connection* conn = new Connection();
+  printf("receive connect request conn->id %d\n", conn->id());
   if (!uv_accept(server, conn->stream())) {
     // connection accepted
     uv_read_start(conn->stream(), on_uv_client_alloc, on_uv_read);
