@@ -18,6 +18,7 @@ static void on_proxy_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t
 static void on_connection_write_end(uv_write_t* req, int status) {
   Connection* conn = (Connection *)req->data;
   assert(conn);
+  free(req);
   if (status < 0) {
     printf("on_connection_write_end error %s\n", uv_strerror(status));
     return;
@@ -29,11 +30,13 @@ static void on_write_to_upstream_done(uv_write_t* req, int status) {
   assert(conn);
   if (status < 0) {
     printf("on_write_to_upstream_done %s\n", uv_strerror(status));
+    free(req);
     return;
   }
   conn->status = Connection::CONNECTED;
   conn->clientOffset = 0;
   conn->pendingLen = 0;
+  free(req);
 }
 
 // proxy read upstream
@@ -65,7 +68,7 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
   // start write handshake data, connected then reply header
   // https://www.openssh.com/txt/socks4.protocol
   conn->sendHeader();
-  
+
   if (status == Connection::DATA_PENDING) {
     conn->writeToProxy(conn->buf + conn->clientOffset, conn->pendingLen);
   }
@@ -111,9 +114,9 @@ void Connection::onData(char* receiveBuf, size_t len) {
     status = CLIENT_REQUEST;
     remoteAddr = util::parseAddr(receiveBuf, 2);
     printf("remote address is %s:%d\n", remoteAddr.ip, remoteAddr.port);
-    
+
     connectToRemote(remoteAddr.ip, remoteAddr.port);
-    
+
     // read username
     size_t userNameLen = strlen(receiveBuf + SOCKS4A_HEADER_LENGTH - 1);
     if (userNameLen > 0) {
