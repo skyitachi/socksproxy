@@ -45,7 +45,7 @@ static void on_write_to_upstream_done(uv_write_t* req, int status) {
 static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
   Connection* conn = (Connection*) stream->data;
   assert(conn);
-  printf("in the on_proxy_uv_read read %zu\n", nread);
+  printf("in the on_proxy_uv_read read %ld\n", nread);
   if (nread < 0) {
     printf("on_proxy_uv_read error %s\n", uv_strerror(nread));
     if (conn->status == Connection::CONNECTED) {
@@ -96,6 +96,7 @@ void Connection::writeToClient(char *buf, size_t len) {
 void Connection::writeToProxy(char *buf, size_t len) {
   if (status != SERVER_FREED) {
     // 只要server没被销毁，都要发送
+    status = DATA_TO_WRITE;
     write(buf, len, upstream(), on_write_to_upstream_done);
   } else {
     printf("server has been freed before write\n");

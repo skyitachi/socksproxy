@@ -13,7 +13,7 @@ func main() {
 	dialSocksProxy := socks.Dial("socks4://127.0.0.1:12321?timeout=5s")
 	tr := &http.Transport{Dial: dialSocksProxy}
 	httpClient := &http.Client{Transport: tr}
-	resp, err := httpClient.Get("https://www.baidu.com")
+	resp, err := httpClient.Get("http://127.0.0.1:8000")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -26,8 +26,9 @@ public:
     CONNECTED,
     SERVER_CONNECT_ERROR,
     DATA_PENDING,
+    DATA_TO_WRITE,
     SERVER_CLOSE,
-    SERVER_FREED
+    SERVER_FREED,
   };
   Connection() {
     // set context
