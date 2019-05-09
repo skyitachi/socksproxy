@@ -71,9 +71,6 @@ public:
   size_t pendingLen = 0;
 
   char upstreamBuf[4096];
-  // TODO: client to proxy, proxy to server share same writeReq ???
-  // short lived object, don't reuse
-//  uv_write_t* writeReq;
 
   uv_connect_t* connectReq;
   // proxy to upstream connection
