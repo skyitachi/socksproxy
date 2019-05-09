@@ -26,7 +26,8 @@ public:
     CONNECTED,
     SERVER_CONNECT_ERROR,
     DATA_PENDING,
-    SERVER_CLOSE
+    SERVER_CLOSE,
+    SERVER_FREED
   };
   Connection() {
     // set context
@@ -88,6 +89,7 @@ public:
   void connectToRemote(const char* ip, uint16_t port);
 
   void freeRemoteTcp() {
+    status = SERVER_FREED;
     uv_close((uv_handle_t* )remoteTcp, NULL);
     free(remoteTcp);
   }

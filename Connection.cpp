@@ -28,28 +28,31 @@ static void on_connection_write_end(uv_write_t* req, int status) {
 static void on_write_to_upstream_done(uv_write_t* req, int status) {
   Connection* conn = (Connection *)req->data;
   assert(conn);
+  free(req);
   if (status < 0) {
-    printf("on_write_to_upstream_done %s\n", uv_strerror(status));
-    free(req);
+    if (conn->status == Connection::SERVER_CLOSE) {
+      printf("on_write_to_upstream_done freeRemoteTcp\n");
+      conn->freeRemoteTcp();
+    }
     return;
   }
   conn->status = Connection::CONNECTED;
   conn->clientOffset = 0;
   conn->pendingLen = 0;
-  free(req);
 }
 
 // proxy read upstream
 static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
   Connection* conn = (Connection*) stream->data;
   assert(conn);
+  printf("in the on_proxy_uv_read read %zu\n", nread);
   if (nread < 0) {
-    if (nread != UV_EOF) {
-      printf("on_proxy_uv_read error %s\n", uv_strerror(nread));
-    } else {
-      // TODO, retry connect to server
+    printf("on_proxy_uv_read error %s\n", uv_strerror(nread));
+    if (conn->status == Connection::CONNECTED) {
       conn->status = Connection::SERVER_CLOSE;
-//      conn->freeRemoteTcp();
+      // 如果是http的话, 这里必须清理
+      printf("freeRemoteTcp on_proxy_uv_read\n");
+      conn->freeRemoteTcp();
     }
     return;
   }
@@ -89,8 +92,14 @@ void Connection::writeToClient(char *buf, size_t len) {
   write(buf, len, stream(), on_connection_write_end);
 }
 
+// proxy writes data to upstream
 void Connection::writeToProxy(char *buf, size_t len) {
-  write(buf, len, upstream(), on_write_to_upstream_done);
+  if (status != SERVER_FREED) {
+    // 只要server没被销毁，都要发送
+    write(buf, len, upstream(), on_write_to_upstream_done);
+  } else {
+    printf("server has been freed before write\n");
+  }
 }
 
 void Connection::sendHeader() {
