@@ -86,15 +86,8 @@ public:
   void writeToProxy(char* buf, size_t len);
   void connectToRemote(const char* ip, uint16_t port);
 
-  void freeRemoteTcp() {
-    status = SERVER_FREED;
-    uv_close((uv_handle_t* )remoteTcp, NULL);
-    free(remoteTcp);
-  }
-  void freeTcp() {
-    uv_close((uv_handle_t* )tcp_, NULL);
-    free(tcp_);
-  }
+  void freeRemoteTcp();
+  void freeTcp();
 
 private:
   void write(char *buf, size_t, uv_stream_t*, uv_write_cb);

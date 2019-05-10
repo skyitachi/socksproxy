@@ -154,4 +154,19 @@ void Connection::onData(char* receiveBuf, size_t len) {
   }
 }
 
+static void on_uv_close(uv_handle_t* handle) {
+  // NOTE: must free here
+  free(handle);
+}
+
+void Connection::freeRemoteTcp() {
+  status = SERVER_FREED;
+  uv_close((uv_handle_t* )remoteTcp, on_uv_close);
+}
+
+void Connection::freeTcp() {
+  uv_close((uv_handle_t* )tcp_, on_uv_close);
+}
 };
+
+
