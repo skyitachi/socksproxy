@@ -9,10 +9,12 @@
 #include <cstdio>
 #include <list>
 #include <uv.h>
-#include "util.h"
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <chrono>
+#include "util.h"
+#include "HttpHeader.h"
 
 #define SOCKS4A_HEADER_LENGTH 9
 // Connection should be EventListener
@@ -20,6 +22,7 @@ namespace socks {
 static int gCounter = 0;
 class Connection {
 public:
+  typedef std::chrono::time_point<std::chrono::system_clock> SystemClock;
   enum Status {
     INIT,
     CLIENT_REQUEST,
@@ -30,22 +33,31 @@ public:
     SERVER_CLOSE,
     SERVER_FREED,
   };
+  enum Protocol {
+    UNPARSED,
+    TCP,
+    HTTP1_0,
+    HTTP1_1,
+    HTTP2,
+  };
+  
   Connection() {
-    // set context
-    tcp_ = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
-    tcp_->data = this;
-
-    remoteTcp = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
-    remoteTcp->data = this;
-
-    connectReq = (uv_connect_t* )malloc(sizeof(uv_connect_t));
-    connectReq->data = this;
+    initHandle<uv_tcp_t>(&tcp_);
+  
+    initHandle<uv_tcp_t>(&remoteTcp);
+  
+    initHandle<uv_connect_t>(&connectReq);
+  
+    initHandle<uv_timer_t>(&timer_);
 
     loop_ = uv_default_loop();
 
     uv_tcp_init(loop_, tcp_);
     uv_tcp_init(loop_, remoteTcp);
     id_ = gCounter++;
+    initTimer();
+    
+    protocol = UNPARSED;
   }
 
   ~Connection() {
@@ -88,11 +100,25 @@ public:
 
   void freeRemoteTcp();
   void freeTcp();
-
+  
+  void checkReadTimer(SystemClock now);
+  
+  Protocol protocol;
+  HttpHeader httpHeader;
+  SystemClock lastReadTime = std::chrono::system_clock::now();
+  
 private:
+  template<typename T>
+  void initHandle(T **handle) {
+    *handle = (T*)malloc(sizeof(T));
+    // set context
+    (*handle)->data = this;
+  }
   void write(char *buf, size_t, uv_stream_t*, uv_write_cb);
+  void initTimer();
   // client to proxy
   uv_tcp_t* tcp_;
+  uv_timer_t* timer_;
 
   uv_loop_t* loop_;
   int id_;

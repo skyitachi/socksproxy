@@ -80,6 +80,13 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
   conn->status = Connection::CONNECTED;
 }
 
+static void on_uv_timer_cb(uv_timer_t* timer) {
+  Connection* conn = (Connection* ) timer->data;
+  assert(conn);
+  auto now = std::chrono::system_clock::now();
+  conn->checkReadTimer(now);
+}
+
 void Connection::write(char* buf, size_t len, uv_stream_t* stream, uv_write_cb cb) {
   uv_buf_t uvBuf;
   uvBuf = uv_buf_init(buf, len);
@@ -94,6 +101,15 @@ void Connection::writeToClient(char *buf, size_t len) {
 
 // proxy writes data to upstream
 void Connection::writeToProxy(char *buf, size_t len) {
+  // 目前只解析http
+  if (protocol == UNPARSED) {
+    auto ret = httpHeader.receiveBytes(buf, len);
+    if (ret.first && ret.second) {
+      protocol = HTTP1_1;
+    } else if (ret.first) {
+      protocol = TCP;
+    }
+  }
   if (status != SERVER_FREED) {
     // 只要server没被销毁，都要发送
     status = DATA_TO_WRITE;
@@ -114,10 +130,16 @@ void Connection::connectToRemote(const char *ip, uint16_t port) {
 }
 
 void Connection::onData(char* receiveBuf, size_t len) {
+  lastReadTime = std::chrono::system_clock::now();
   printf("receive data bytes %zu, conn status %d\n", len, status);
   if (len < SOCKS4A_HEADER_LENGTH && status == INIT) {
     clientOffset += len;
     return;
+  }
+  if (status == SERVER_FREED || status == SERVER_CLOSE) {
+    printf("stop read from the client\n");
+    uv_read_stop(stream());
+    freeTcp();
   }
   // client connect request
   if (receiveBuf[0] == 0x04 && receiveBuf[1] == 0x01 && status == INIT) {
@@ -167,6 +189,21 @@ void Connection::freeRemoteTcp() {
 void Connection::freeTcp() {
   uv_close((uv_handle_t* )tcp_, on_uv_close);
 }
-};
 
+void Connection::initTimer() {
+  uv_timer_init(loop_, timer_);
+  // 10s 检查一次
+  uv_timer_start(timer_, on_uv_timer_cb, 0, 10000);
+}
+
+void Connection::checkReadTimer(SystemClock now) {
+  std::chrono::duration<double> diff = now - lastReadTime;
+  if (diff.count() >= 10) {
+    // clear tcp
+    printf("freeTcp by timer\n");
+    freeTcp();
+    uv_timer_stop(timer_);
+  }
+}
+};
 

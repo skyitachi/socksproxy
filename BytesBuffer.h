@@ -150,10 +150,13 @@ namespace bb {
     void printPosition();
 #endif
   
+  protected:
+    std::vector<uint8_t> buf;
+    
   private:
     uint32_t wpos;
     mutable uint32_t rpos;
-    std::vector<uint8_t> buf;
+    
 
 #ifdef BB_UTILITY
     std::string name;
