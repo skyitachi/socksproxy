@@ -8,3 +8,5 @@ link_directories(/usr/local/lib)
 set(CMAKE_CXX_STANDARD 14)
 add_executable(socksproxy main.cpp EventListener.h ProxyServer.cpp ProxyServer.h Connection.cpp Connection.h BytesBuffer.cpp BytesBuffer.h HttpHeader.cpp HttpHeader.h)
 target_link_libraries(socksproxy uv)
+
+add_subdirectory(examples)
