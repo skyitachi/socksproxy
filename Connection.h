@@ -13,13 +13,16 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <chrono>
+#include <boost/log/trivial.hpp>
 #include "util.h"
 #include "HttpHeader.h"
+#include "http-parser/http_parser.h"
 
 #define SOCKS4A_HEADER_LENGTH 9
 // Connection should be EventListener
 namespace socks {
 static int gCounter = 0;
+
 class Connection {
 public:
   typedef std::chrono::time_point<std::chrono::system_clock> SystemClock;
@@ -36,9 +39,8 @@ public:
   enum Protocol {
     UNPARSED,
     TCP,
-    HTTP1_0,
-    HTTP1_1,
-    HTTP2,
+    HTTP,
+    HTTP_HEADERS_COMPLETE
   };
   
   Connection() {
@@ -56,8 +58,10 @@ public:
     uv_tcp_init(loop_, remoteTcp);
     id_ = gCounter++;
     initTimer();
+    initHttpParser();
     
     protocol = UNPARSED;
+    
   }
 
   ~Connection() {
@@ -104,7 +108,8 @@ public:
   void checkReadTimer(SystemClock now);
   
   Protocol protocol;
-  HttpHeader httpHeader;
+  
+  http_parser* httpParserPtr;
   SystemClock lastReadTime = std::chrono::system_clock::now();
   
 private:
@@ -116,6 +121,9 @@ private:
   }
   void write(char *buf, size_t, uv_stream_t*, uv_write_cb);
   void initTimer();
+  void initHttpParser();
+  void parseBytes(char* buf, size_t len);
+  
   // client to proxy
   uv_tcp_t* tcp_;
   uv_timer_t* timer_;

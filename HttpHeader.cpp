@@ -4,6 +4,7 @@
 
 #include "HttpHeader.h"
 #include <string.h>
+
 namespace socks {
   // return parse status and is http protocol
   std::pair<bool, bool> HttpHeader::receiveBytes(char *input_buf, size_t len) {

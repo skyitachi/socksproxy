@@ -48,7 +48,7 @@ int main() {
   http_parser* httpParser = (http_parser* )malloc(sizeof(http_parser));
   http_parser_init(httpParser, HTTP_REQUEST);
   
-  const char *header = "GET /ws HTTP/1.1\r\nHost";
+  const char *header = "Not A Http Protocol";
 //  std::string header = "GET /tutorials/other/top-20-mysql-best-practices/ HTTP/1.1\r\n"
 //                       "Host: net.tutsplus.com\r\n"
 //                       "User-Agent: Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.1.5) Gecko/20091102 Firefox/3.5.5 (.NET CLR 3.5.30729)\n"
@@ -73,5 +73,4 @@ int main() {
   parsed = http_parser_execute(httpParser, &settings, remain, size);
   
   printf("parsed size %zd, real size %zd\n", parsed, size);
-  
 }

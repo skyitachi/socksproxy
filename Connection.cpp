@@ -5,6 +5,22 @@
 #include "Connection.h"
 
 namespace socks {
+  
+static int on_headers_complete(http_parser* parser);
+static int on_message_begin(http_parser*);
+
+static http_parser_settings httpParserSettings = {
+  .on_message_begin = on_message_begin
+  ,.on_header_field = 0
+  ,.on_header_value = 0
+  ,.on_url = 0
+  ,.on_status = 0
+  ,.on_body = 0
+  ,.on_headers_complete = on_headers_complete
+  ,.on_message_complete = 0
+  ,.on_chunk_header = 0
+  ,.on_chunk_complete = 0
+};
 
 static char fixedHeader[8] = {0x00, 0x5a, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47};
 
@@ -103,13 +119,13 @@ void Connection::writeToClient(char *buf, size_t len) {
 void Connection::writeToProxy(char *buf, size_t len) {
   // 目前只解析http
   if (protocol == UNPARSED) {
-    auto ret = httpHeader.receiveBytes(buf, len);
-    if (ret.first && ret.second) {
-      protocol = HTTP1_1;
-    } else if (ret.first) {
-      protocol = TCP;
-    }
+    parseBytes(buf, len);
+  } else if (protocol == HTTP) {
+    parseBytes(buf, len);
+  } else if (protocol == HTTP_HEADERS_COMPLETE) {
+    // 这里已经是parse 完成了
   }
+  
   if (status != SERVER_FREED) {
     // 只要server没被销毁，都要发送
     status = DATA_TO_WRITE;
@@ -205,5 +221,37 @@ void Connection::checkReadTimer(SystemClock now) {
     uv_timer_stop(timer_);
   }
 }
+
+void Connection::initHttpParser() {
+  httpParserPtr = (http_parser* )malloc(sizeof(http_parser));
+  http_parser_init(httpParserPtr, HTTP_REQUEST);
+  // set context
+  httpParserPtr->data = this;
+}
+
+void Connection::parseBytes(char *buf, size_t len) {
+  assert(httpParserPtr);
+  size_t nparsed = http_parser_execute(httpParserPtr, &httpParserSettings, buf, len);
+  if (nparsed != len) {
+    // 非http的request
+    protocol = TCP;
+  }
+}
+
+static int on_headers_complete(http_parser* parser) {
+  Connection* conn = (Connection* ) parser->data;
+  assert(conn);
+  BOOST_LOG_TRIVIAL(info) << "http protocol parsed";
+  conn->protocol = Connection::HTTP_HEADERS_COMPLETE;
+  return 0;
+}
+
+static int on_message_begin(http_parser* parser) {
+  Connection* conn = (Connection* ) parser->data;
+  assert(conn);
+  conn->protocol = Connection::HTTP;
+  return 0;
+}
+
 };
 
