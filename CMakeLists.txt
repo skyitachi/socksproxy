@@ -10,8 +10,14 @@ set(CMAKE_CXX_STANDARD 14)
 # 使用cmake dynamic link
 set(CMAKE_CXX_FLAGS "-DBOOST_LOG_DYN_LINK")
 
+
 add_executable(socksproxy main.cpp EventListener.h ProxyServer.cpp ProxyServer.h Connection.cpp Connection.h BytesBuffer.cpp BytesBuffer.h HttpHeader.cpp HttpHeader.h ./deps/http-parser/http_parser.c)
-target_link_libraries(socksproxy uv boost_log-mt)
+
+IF (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    target_link_libraries(socksproxy uv boost_log-mt)
+ELSEIF (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    target_link_libraries(socksproxy uv boost_log pthread)
+ENDIF ()
 
 add_subdirectory(examples)
 add_subdirectory(test)

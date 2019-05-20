@@ -11,12 +11,12 @@ static int on_message_begin(http_parser*);
 
 static http_parser_settings httpParserSettings = {
   .on_message_begin = on_message_begin
-  ,.on_header_field = 0
-  ,.on_header_value = 0
   ,.on_url = 0
   ,.on_status = 0
-  ,.on_body = 0
+  ,.on_header_field = 0
+  ,.on_header_value = 0
   ,.on_headers_complete = on_headers_complete
+  ,.on_body = 0
   ,.on_message_complete = 0
   ,.on_chunk_header = 0
   ,.on_chunk_complete = 0
