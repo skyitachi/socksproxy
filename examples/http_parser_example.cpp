@@ -13,24 +13,24 @@ int main() {
   static http_parser_settings settings_null =
       {
       .on_message_begin = 0
-          ,.on_header_field = 0
-          ,.on_header_value = 0
           ,.on_url = 0
           ,.on_status = 0
-          ,.on_body = 0
+          ,.on_header_field = 0
+          ,.on_header_value = 0
           ,.on_headers_complete = 0
+          ,.on_body = 0
           ,.on_message_complete = 0
           ,.on_chunk_header = 0
           ,.on_chunk_complete = 0
       };
   http_parser_settings settings = {
       .on_message_begin = 0
-      ,.on_header_field = 0
-      ,.on_header_value = 0
       ,.on_url = 0
       ,.on_status = 0
-      ,.on_body = 0
+      ,.on_header_field = 0
+      ,.on_header_value = 0
       ,.on_headers_complete = 0
+      ,.on_body = 0
       ,.on_message_complete = 0
       ,.on_chunk_header = 0
       ,.on_chunk_complete = 0
