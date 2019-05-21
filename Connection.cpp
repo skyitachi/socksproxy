@@ -36,7 +36,13 @@ static void on_connection_write_end(uv_write_t* req, int status) {
   assert(conn);
   free(req);
   if (status < 0) {
-    printf("on_connection_write_end error %s\n", uv_strerror(status));
+    BOOST_LOG_TRIVIAL(error) << "on_connection_write_end error: " << uv_strerror(status);
+    // 这里相当于客户端主动关闭连接
+    if (conn->status == Connection::CONNECTED) {
+      // 需要主动关闭客户端连接
+      BOOST_LOG_TRIVIAL(info) << "on_connection_write_end freeRemoteTcp";
+      conn->freeRemoteTcp();
+    }
     return;
   }
 }
@@ -47,7 +53,7 @@ static void on_write_to_upstream_done(uv_write_t* req, int status) {
   free(req);
   if (status < 0) {
     if (conn->status == Connection::SERVER_CLOSE) {
-      printf("on_write_to_upstream_done freeRemoteTcp\n");
+      BOOST_LOG_TRIVIAL(info) << "on_write_to_upstream_done freeRemoteTcp";
       conn->freeRemoteTcp();
     }
     return;
@@ -61,13 +67,13 @@ static void on_write_to_upstream_done(uv_write_t* req, int status) {
 static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf) {
   Connection* conn = (Connection*) stream->data;
   assert(conn);
-  printf("in the on_proxy_uv_read read %ld\n", nread);
+  BOOST_LOG_TRIVIAL(debug) << "on_proxy_uv_read read " << nread;
   if (nread < 0) {
-    printf("on_proxy_uv_read error %s\n", uv_strerror(nread));
+    BOOST_LOG_TRIVIAL(info) << "on_proxy_uv_read error " << uv_strerror(nread);
     if (conn->status == Connection::CONNECTED) {
       conn->status = Connection::SERVER_CLOSE;
       // 如果是http的话, 这里必须清理
-      printf("freeRemoteTcp on_proxy_uv_read\n");
+      BOOST_LOG_TRIVIAL(info) << "freeRemoteTcp on_proxy_uv_read";
       conn->freeRemoteTcp();
     }
     return;
@@ -214,9 +220,10 @@ void Connection::initTimer() {
 
 void Connection::checkReadTimer(SystemClock now) {
   std::chrono::duration<double> diff = now - lastReadTime;
-  if (diff.count() >= 10) {
+  // Note: 只有在服务端先关闭连接的情况下，客户端检测到空闲连接才会主动断开
+  if (diff.count() >= 10 && status == SERVER_FREED) {
     // clear tcp
-    printf("freeTcp by timer\n");
+    BOOST_LOG_TRIVIAL(info) << "freeTcp by timer";
     freeTcp();
     uv_timer_stop(timer_);
   }

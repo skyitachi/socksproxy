@@ -22,7 +22,7 @@ static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf
   assert(conn);
   if (nread < 0) {
     if (nread != UV_EOF) {
-      printf("read error: %s\n", uv_strerror(nread));
+      BOOST_LOG_TRIVIAL(error) << "read error: " << uv_strerror(nread);
     } else {
       // clear source
 //      conn->freeTcp();
@@ -74,7 +74,7 @@ int ProxyServer::listen(uint16_t port) {
   if (r < 0) {
     return r;
   }
-  printf("listened ok\n");
+  BOOST_LOG_TRIVIAL(info) << "listened ok";
   // TODO: 不应该放在这里实现
   return uv_run(loop_, UV_RUN_DEFAULT);
 }

@@ -22,7 +22,6 @@ public:
   ProxyServer() {
     loop_ = uv_default_loop();
   }
-  ProxyServer(uv_loop_t* l): loop_(l) { }
   uv_loop_t* loop() const {
     return loop_;
   }
