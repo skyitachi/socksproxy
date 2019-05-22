@@ -10,7 +10,7 @@
 - [ ] 支持https协议的解析
 - [ ] 加入google test
 - [ ] 完善 test-case
-- [ ] Connection 自己资源的释放
+- [x] Connection 自己资源的释放
 
 ### 依赖管理
 - http-parser, 包含在了deps目录下
