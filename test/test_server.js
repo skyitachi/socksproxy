@@ -9,12 +9,18 @@ function mockLongDataTransform(req, res) {
   }, 1000);
 }
 
+function normalHandler(req, res) {
+  res.end("hello\n");
+}
+
 const server = http.createServer((req, res) => {
   console.log("receive request from ", req.socket.remoteAddress);
   // setTimeout(() => {
   //   res.end("hello\n");
   // }, 10000);
-  mockLongDataTransform(req, res);
+  // mockLongDataTransform(req, res);
+  //
+  normalHandler(req, res);
 });
 
 server.listen(7001, () => {

@@ -65,6 +65,10 @@ public:
   }
 
   ~Connection() {
+    // httpParser的生命周期是和Connection几乎一致的，所以放在destructor里做清除
+    if (httpParserPtr) {
+      free(httpParserPtr);
+    }
   }
 
   inline int id() {
@@ -104,12 +108,13 @@ public:
 
   void freeRemoteTcp();
   void freeTcp();
+  void freeTimer();
   
   void checkReadTimer(SystemClock now);
   
   Protocol protocol;
   
-  http_parser* httpParserPtr;
+  http_parser* httpParserPtr = nullptr;
   SystemClock lastReadTime = std::chrono::system_clock::now();
   
 private:

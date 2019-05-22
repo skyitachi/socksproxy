@@ -47,14 +47,14 @@ void ProxyServer::addConnectionListener(ProxyServer::ConnectionListener listener
 // libuv callback cannot be class member function
 void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
   if (status < 0) {
-    printf("on_new_connection error %s\n", uv_strerror(status));
+    BOOST_LOG_TRIVIAL(error) << "on_new_connection error: " << uv_strerror(status);
     return;
   }
   ProxyServer* serverCtx = (ProxyServer* ) server->data;
   assert(serverCtx);
   // create connection here
   Connection* conn = new Connection();
-  printf("receive connect request conn->id %d\n", conn->id());
+  BOOST_LOG_TRIVIAL(info) << "receive connect request conn->id " << conn->id();
   if (!uv_accept(server, conn->stream())) {
     // connection accepted
     uv_read_start(conn->stream(), on_uv_client_alloc, on_uv_read);

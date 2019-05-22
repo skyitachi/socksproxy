@@ -11,6 +11,7 @@
 #include <uv.h>
 #include <memory>
 #include <assert.h>
+#include <boost/log/trivial.hpp>
 #include "Connection.h"
 #include "util.h"
 

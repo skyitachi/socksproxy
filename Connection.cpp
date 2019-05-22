@@ -31,6 +31,7 @@ static void on_proxy_uv_alloc(uv_handle_t* handle, size_t suggest_size, uv_buf_t
   buf->len = sizeof(conn->upstreamBuf);
 }
 
+// client stream write callback
 static void on_connection_write_end(uv_write_t* req, int status) {
   Connection* conn = (Connection *)req->data;
   assert(conn);
@@ -42,6 +43,8 @@ static void on_connection_write_end(uv_write_t* req, int status) {
       // 需要主动关闭客户端连接
       BOOST_LOG_TRIVIAL(info) << "on_connection_write_end freeRemoteTcp";
       conn->freeRemoteTcp();
+      conn->freeTimer();
+      delete conn;
     }
     return;
   }
@@ -83,6 +86,7 @@ static void on_proxy_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t*
   }
 }
 
+// connect to upstream callback
 static void on_connect_to_upstream(uv_connect_t* req, int status) {
   Connection* conn = (Connection *)req->data;
   assert(conn);
@@ -97,9 +101,12 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
   if (status == Connection::DATA_PENDING) {
     conn->writeToProxy(conn->buf + conn->clientOffset, conn->pendingLen);
   }
-  printf("connect to remote successfully\n");
+  BOOST_LOG_TRIVIAL(info) << "connect to remote successfully";
+  
   uv_read_start(conn->upstream(), on_proxy_uv_alloc, on_proxy_uv_read);
   conn->status = Connection::CONNECTED;
+  // 清除connectReq
+  free(req);
 }
 
 static void on_uv_timer_cb(uv_timer_t* timer) {
@@ -153,13 +160,13 @@ void Connection::connectToRemote(const char *ip, uint16_t port) {
 
 void Connection::onData(char* receiveBuf, size_t len) {
   lastReadTime = std::chrono::system_clock::now();
-  printf("receive data bytes %zu, conn status %d\n", len, status);
+  BOOST_LOG_TRIVIAL(info) << "receive data bytes:  " << len << ", conn status: " << status;
   if (len < SOCKS4A_HEADER_LENGTH && status == INIT) {
     clientOffset += len;
     return;
   }
   if (status == SERVER_FREED || status == SERVER_CLOSE) {
-    printf("stop read from the client\n");
+    BOOST_LOG_TRIVIAL(info) << "stop read from the client";
     uv_read_stop(stream());
     freeTcp();
   }
@@ -167,7 +174,7 @@ void Connection::onData(char* receiveBuf, size_t len) {
   if (receiveBuf[0] == 0x04 && receiveBuf[1] == 0x01 && status == INIT) {
     status = CLIENT_REQUEST;
     remoteAddr = util::parseAddr(receiveBuf, 2);
-    printf("remote address is %s:%d\n", remoteAddr.ip, remoteAddr.port);
+    BOOST_LOG_TRIVIAL(info) << "remote address is" << remoteAddr.ip << ":" << remoteAddr.port;
 
     connectToRemote(remoteAddr.ip, remoteAddr.port);
 
@@ -223,9 +230,11 @@ void Connection::checkReadTimer(SystemClock now) {
   // Note: 只有在服务端先关闭连接的情况下，客户端检测到空闲连接才会主动断开
   if (diff.count() >= 10 && status == SERVER_FREED) {
     // clear tcp
-    BOOST_LOG_TRIVIAL(info) << "freeTcp by timer";
+    BOOST_LOG_TRIVIAL(info) << "clear up connection resource by timer";
     freeTcp();
-    uv_timer_stop(timer_);
+    freeTimer();
+    // Note: destroy all
+    delete this;
   }
 }
 
@@ -243,6 +252,12 @@ void Connection::parseBytes(char *buf, size_t len) {
     // 非http的request
     protocol = TCP;
   }
+}
+
+void Connection::freeTimer() {
+  assert(timer_);
+  uv_timer_stop(timer_);
+  free(timer_);
 }
 
 static int on_headers_complete(http_parser* parser) {
