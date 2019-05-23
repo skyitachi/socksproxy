@@ -7,8 +7,8 @@ static uv_fs_t openReq;
 static uv_fs_t readReq;
 static uv_fs_t closeReq;
 static uv_buf_t uvBuf;
-static char strBuf[65];
-static char dataBuf[64];
+static char strBuf[4097];
+static char dataBuf[4096];
 
 static void onRead(uv_fs_t *req);
 
