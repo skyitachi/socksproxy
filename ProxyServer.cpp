@@ -57,6 +57,8 @@ void ProxyServer::on_uv_connection(uv_stream_t* server, int status) {
   BOOST_LOG_TRIVIAL(info) << "receive connect request conn->id " << conn->id();
   if (!uv_accept(server, conn->stream())) {
     // connection accepted
+    BOOST_LOG_TRIVIAL(info) << "client connection accepted";
+    conn->status = Connection::CLIENT_ACCEPTED;
     uv_read_start(conn->stream(), on_uv_client_alloc, on_uv_read);
   }
 }

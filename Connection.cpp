@@ -9,6 +9,11 @@ namespace socks {
 static int on_headers_complete(http_parser* parser);
 static int on_message_begin(http_parser*);
 
+static void on_uv_close(uv_handle_t* handle) {
+  // NOTE: must free here
+  free(handle);
+}
+
 static http_parser_settings httpParserSettings = {
   .on_message_begin = on_message_begin
   ,.on_url = 0
@@ -91,12 +96,10 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
   Connection* conn = (Connection *)req->data;
   assert(conn);
   if (status < 0) {
+    BOOST_LOG_TRIVIAL(error) << "proxy connect to server error: " << uv_strerror(status);
     conn->status = Connection::SERVER_CONNECT_ERROR;
     return;
   }
-  // start write handshake data, connected then reply header
-  // https://www.openssh.com/txt/socks4.protocol
-  conn->sendHeader();
 
   if (status == Connection::DATA_PENDING) {
     conn->writeToProxy(conn->buf + conn->clientOffset, conn->pendingLen);
@@ -161,7 +164,7 @@ void Connection::connectToRemote(const char *ip, uint16_t port) {
 void Connection::onData(char* receiveBuf, size_t len) {
   lastReadTime = std::chrono::system_clock::now();
   BOOST_LOG_TRIVIAL(info) << "receive data bytes:  " << len << ", conn status: " << status;
-  if (len < SOCKS4A_HEADER_LENGTH && status == INIT) {
+  if (len < SOCKS4A_HEADER_LENGTH && status == CLIENT_ACCEPTED) {
     clientOffset += len;
     return;
   }
@@ -171,11 +174,17 @@ void Connection::onData(char* receiveBuf, size_t len) {
     freeTcp();
   }
   // client connect request
-  if (receiveBuf[0] == 0x04 && receiveBuf[1] == 0x01 && status == INIT) {
+  if (receiveBuf[0] == 0x04 && receiveBuf[1] == 0x01 && status == CLIENT_ACCEPTED) {
     status = CLIENT_REQUEST;
     remoteAddr = util::parseAddr(receiveBuf, 2);
-    BOOST_LOG_TRIVIAL(info) << "remote address is" << remoteAddr.ip << ":" << remoteAddr.port;
-
+    BOOST_LOG_TRIVIAL(info) << "remote address is " << remoteAddr.ip << ":" << remoteAddr.port;
+  
+    // start write handshake data, connected then reply header
+    // https://www.openssh.com/txt/socks4.protocol
+    // NOTE: 在这里connect更合适
+    // 这会导致客户端误以为连接上了, 会多发数据
+    sendHeader();
+    
     connectToRemote(remoteAddr.ip, remoteAddr.port);
 
     // read username
@@ -201,14 +210,11 @@ void Connection::onData(char* receiveBuf, size_t len) {
     clientOffset = len;
     pendingLen = len;
   } else {
-    printf("unexpected connection status %d\n", status);
+    BOOST_LOG_TRIVIAL(info) << "unexpected connection status " << status;
+    uv_read_stop(stream());
   }
 }
 
-static void on_uv_close(uv_handle_t* handle) {
-  // NOTE: must free here
-  free(handle);
-}
 
 void Connection::freeRemoteTcp() {
   status = SERVER_FREED;
@@ -227,8 +233,28 @@ void Connection::initTimer() {
 
 void Connection::checkReadTimer(SystemClock now) {
   std::chrono::duration<double> diff = now - lastReadTime;
-  // Note: 只有在服务端先关闭连接的情况下，客户端检测到空闲连接才会主动断开
-  if (diff.count() >= 10 && status == SERVER_FREED) {
+  if (diff.count() < 10) return;
+  if (status == INIT) {
+    // 超时时间
+    BOOST_LOG_TRIVIAL(info) << "timeout reached, cleanup by timeout";
+    cleanup();
+  } else if (status == CLIENT_ACCEPTED) {
+    uv_read_stop(stream());
+    uv_close(clientHandle(), [](uv_handle_t* handle) {
+      Connection* conn = (Connection* ) handle->data;
+      assert(conn);
+      BOOST_LOG_TRIVIAL(info) << "connection cleanup done, cleanup by server error";
+      conn->cleanup();
+    });
+  } else if (status == SERVER_CONNECT_ERROR) {
+    uv_close(clientHandle(), [](uv_handle_t* handle) {
+      Connection* conn = (Connection* ) handle->data;
+      assert(conn);
+      BOOST_LOG_TRIVIAL(info) << "connection cleanup done, cleanup by server connect error";
+      conn->cleanup();
+    });
+  } else if (status == SERVER_FREED) {
+    // Note: 只有在服务端先关闭连接的情况下，客户端检测到空闲连接才会主动断开
     // clear tcp
     BOOST_LOG_TRIVIAL(info) << "clear up connection resource by timer";
     freeTcp();
@@ -258,6 +284,7 @@ void Connection::freeTimer() {
   assert(timer_);
   uv_timer_stop(timer_);
   free(timer_);
+  timer_ = nullptr;
 }
 
 static int on_headers_complete(http_parser* parser) {

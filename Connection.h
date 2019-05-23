@@ -28,6 +28,7 @@ public:
   typedef std::chrono::time_point<std::chrono::system_clock> SystemClock;
   enum Status {
     INIT,
+    CLIENT_ACCEPTED,
     CLIENT_REQUEST,
     CONNECTED,
     SERVER_CONNECT_ERROR,
@@ -67,6 +68,7 @@ public:
   ~Connection() {
     // httpParser的生命周期是和Connection几乎一致的，所以放在destructor里做清除
     if (httpParserPtr) {
+      BOOST_LOG_TRIVIAL(debug) << "http parser freed";
       free(httpParserPtr);
     }
   }
@@ -77,6 +79,9 @@ public:
 
   uv_stream_t *stream() {
     return (uv_stream_t *)tcp_;
+  }
+  uv_handle_t *clientHandle() {
+    return (uv_handle_t *)tcp_;
   }
 
   // proxy to server
@@ -93,9 +98,9 @@ public:
 
   char upstreamBuf[4096];
 
-  uv_connect_t* connectReq;
+  uv_connect_t* connectReq = nullptr;
   // proxy to upstream connection
-  uv_tcp_t* remoteTcp;
+  uv_tcp_t* remoteTcp = nullptr;
 
   Status status = INIT;
 
@@ -111,6 +116,14 @@ public:
   void freeTimer();
   
   void checkReadTimer(SystemClock now);
+  
+  void cleanup() {
+    free(tcp_);
+    free(remoteTcp);
+    free(connectReq);
+    freeTimer();
+    delete this;
+  }
   
   Protocol protocol;
   
