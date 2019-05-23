@@ -31,8 +31,10 @@ int main() {
   uv_tcp_init(uv_default_loop(), tcpPtr);
   uv_connect_t req;
   sockaddr_in sockaddrIn;
-  uv_ip4_addr("127.0.0.1", 3000, &sockaddrIn);
+  uv_ip4_addr("127.0.0.1", 7001, &sockaddrIn);
   uv_tcp_connect(&req, tcpPtr, (const sockaddr *)&sockaddrIn, on_uv_connect);
   uv_run(uv_default_loop(), UV_RUN_ONCE);
+  // free loop resource
+  uv_loop_close(uv_default_loop());
 }
 
