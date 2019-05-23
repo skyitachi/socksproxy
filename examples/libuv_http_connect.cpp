@@ -27,6 +27,7 @@ void on_uv_connect(uv_connect_t* req, int status) {
 
 int main() {
   printf("sizeof(uv_tcp_t) = %zu, sizeof(uv_connect_t) = %zu\n", sizeof(uv_tcp_t), sizeof(uv_connect_t));
+  printf("sizeof(uv_loop_t) = %zu\n", sizeof(uv_loop_t));
   tcpPtr = (uv_tcp_t* )malloc(sizeof(uv_tcp_t));
   uv_tcp_init(uv_default_loop(), tcpPtr);
   uv_connect_t req;
