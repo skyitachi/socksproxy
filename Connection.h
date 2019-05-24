@@ -94,7 +94,6 @@ public:
   char buf[4096];
   // buf 的 offset
   size_t clientOffset = 0;
-  size_t pendingLen = 0;
 
   char upstreamBuf[4096];
 

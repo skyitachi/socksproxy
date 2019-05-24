@@ -68,7 +68,6 @@ static void on_write_to_upstream_done(uv_write_t* req, int status) {
   }
   conn->status = Connection::CONNECTED;
   conn->clientOffset = 0;
-  conn->pendingLen = 0;
 }
 
 // proxy read upstream
@@ -101,9 +100,10 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
     return;
   }
 
-  if (status == Connection::DATA_PENDING) {
-    conn->writeToProxy(conn->buf + conn->clientOffset, conn->pendingLen);
+  if (conn->status == Connection::DATA_PENDING) {
+    conn->writeToProxy(conn->buf, conn->clientOffset);
   }
+  
   BOOST_LOG_TRIVIAL(info) << "connect to remote successfully";
   
   uv_read_start(conn->upstream(), on_proxy_uv_alloc, on_proxy_uv_read);
@@ -194,21 +194,21 @@ void Connection::onData(char* receiveBuf, size_t len) {
     }
     if (len > userNameLen + SOCKS4A_HEADER_LENGTH) {
       // extract data buf
-      clientOffset = userNameLen  + SOCKS4A_HEADER_LENGTH;
-      pendingLen = len - clientOffset;
+      size_t overhead = userNameLen + SOCKS4A_HEADER_LENGTH;
+      memmove(buf, buf + overhead, len - overhead);
       status = DATA_PENDING;
+      clientOffset = len - overhead;
     } else {
       clientOffset = 0;
-      pendingLen = 0;
     }
   } else if (status == CONNECTED) {
     writeToProxy(receiveBuf, len);
   } else if (status == DATA_PENDING) {
-    pendingLen += len;
+    clientOffset += len;
   } else if (status == CLIENT_REQUEST) {
     // 保留在缓冲区的buffer
     clientOffset = len;
-    pendingLen = len;
+    status = DATA_PENDING;
   } else {
     BOOST_LOG_TRIVIAL(info) << "unexpected connection status " << status;
     uv_read_stop(stream());

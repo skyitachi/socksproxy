@@ -24,9 +24,6 @@ static void on_uv_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* uvBuf
     if (nread != UV_EOF) {
       BOOST_LOG_TRIVIAL(error) << "read error: " << uv_strerror(nread);
     } else {
-      // clear source
-//      conn->freeTcp();
-//      delete conn;
     }
     return;
   }
