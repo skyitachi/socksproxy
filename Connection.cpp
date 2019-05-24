@@ -109,7 +109,7 @@ static void on_connect_to_upstream(uv_connect_t* req, int status) {
   uv_read_start(conn->upstream(), on_proxy_uv_alloc, on_proxy_uv_read);
   conn->status = Connection::CONNECTED;
   // 清除connectReq
-  free(req);
+  free(conn->connectReq);
 }
 
 static void on_uv_timer_cb(uv_timer_t* timer) {
@@ -244,14 +244,20 @@ void Connection::checkReadTimer(SystemClock now) {
       Connection* conn = (Connection* ) handle->data;
       assert(conn);
       BOOST_LOG_TRIVIAL(info) << "connection cleanup done, cleanup by server error";
-      conn->cleanup();
+      conn->freeRemoteTcp();
+      conn->freeTimer();
+      free(handle);
+      free(conn->connectReq);
     });
   } else if (status == SERVER_CONNECT_ERROR) {
     uv_close(clientHandle(), [](uv_handle_t* handle) {
       Connection* conn = (Connection* ) handle->data;
       assert(conn);
       BOOST_LOG_TRIVIAL(info) << "connection cleanup done, cleanup by server connect error";
-      conn->cleanup();
+      conn->freeRemoteTcp();
+      conn->freeTimer();
+      free(handle);
+      free(conn->connectReq);
     });
   } else if (status == SERVER_FREED) {
     // Note: 只有在服务端先关闭连接的情况下，客户端检测到空闲连接才会主动断开
@@ -286,6 +292,14 @@ void Connection::freeTimer() {
   uv_close((uv_handle_t*)timer_, on_uv_close);
   // free(timer_);
   // timer_ = nullptr;
+}
+
+void Connection::cleanup() {
+  uv_close((uv_handle_t*) tcp_, on_uv_close);
+  uv_close((uv_handle_t* ) remoteTcp, on_uv_close);
+  free(connectReq);
+  freeTimer();
+  delete this;
 }
 
 static int on_headers_complete(http_parser* parser) {

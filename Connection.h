@@ -115,14 +115,8 @@ public:
   void freeTimer();
   
   void checkReadTimer(SystemClock now);
-  
-  void cleanup() {
-    free(tcp_);
-    free(remoteTcp);
-    free(connectReq);
-    freeTimer();
-    delete this;
-  }
+
+  void cleanup();
   
   Protocol protocol;
   
