@@ -283,8 +283,9 @@ void Connection::parseBytes(char *buf, size_t len) {
 void Connection::freeTimer() {
   assert(timer_);
   uv_timer_stop(timer_);
-  free(timer_);
-  timer_ = nullptr;
+  uv_close((uv_handle_t*)timer_, on_uv_close);
+  // free(timer_);
+  // timer_ = nullptr;
 }
 
 static int on_headers_complete(http_parser* parser) {
