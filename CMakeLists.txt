@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "-g -O0 -DBOOST_LOG_DYN_LINK")
 
 
-add_executable(socksproxy main.cpp TcpConnection.cpp EventListener.h ProxyServer.cpp ProxyServer.h Connection.cpp Connection.h BytesBuffer.cpp BytesBuffer.h HttpHeader.cpp HttpHeader.h ./deps/http-parser/http_parser.c)
+add_executable(socksproxy main.cpp TcpConnection.cpp EventListener.h ProxyServer.cpp ProxyServer.h Connection.cpp Connection.h BytesBuffer.cpp BytesBuffer.h HttpHeader.cpp HttpHeader.h ./deps/http-parser/http_parser.c TcpServer.cpp TcpServer.h)
 
 IF (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     target_link_libraries(socksproxy uv boost_log-mt)

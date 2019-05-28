@@ -50,7 +50,9 @@ class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
     
     ~TcpConnection() {
       auto raw = tcp_.release();
-      uv_close((uv_handle_t *) raw, NULL);
+      uv_close((uv_handle_t *) raw, [](uv_handle_t* handle) {
+        free(handle);
+      });
     }
     
     char buf[4096];
@@ -63,5 +65,7 @@ class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
   };
   
   typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
+  typedef std::function<void (const TcpConnectionPtr& )> ConnectionCallback;
+  typedef std::function<void (const TcpConnectionPtr&, char *buf, ssize_t len)> MessageCallback;
 }
 #endif //SOCKSPROXY_TCPCONNECTION_H
