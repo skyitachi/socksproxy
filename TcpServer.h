@@ -44,9 +44,9 @@ namespace socks {
       return loop_;
     }
 
-    // 如果传入(const TcpConnectionPtr&)会有什么影响
-    void addTcpConnection(const TcpConnectionPtr conn) {
-      connectionMap_[getNextId()] = conn;
+    // 此处应该传入TcpConnectionPtr&
+    void addTcpConnection(const TcpConnectionPtr& conn) {
+      connectionMap_[conn->id()] = conn;
     }
 
     ~TcpServer() {
@@ -57,6 +57,8 @@ namespace socks {
     }
     MessageCallback messageCallback;
     ConnectionCallback connectionCallback;
+    
+    // public ?
     std::unordered_map<int, TcpConnectionPtr> connectionMap_;
 
   private:

@@ -16,7 +16,8 @@ namespace socks {
     auto conn = (TcpConnection* ) stream->data;
     assert(conn);
     if (nread < 0) {
-      // TODO:
+      BOOST_LOG_TRIVIAL(info) << "close connection " << conn->id() << " passively";
+      conn->handleClose();
     } else {
       conn->handleMessage(buf->base, nread);
     }

@@ -6,6 +6,14 @@
 
 namespace socks {
 
+  using namespace std::placeholders;
+  
+  static void closeConnection(TcpServer* server, const TcpConnectionPtr& conn) {
+    BOOST_LOG_TRIVIAL(info) << "delete conn " << conn->id() << " from connectionMap";
+    assert(server->connectionMap_.find(conn->id()) != server->connectionMap_.end());
+    server->connectionMap_.erase(conn->id());
+  }
+  
   static void on_uv_connection(uv_stream_t* server, int status) {
     auto tcpServer = (TcpServer*) server->data;
     assert(tcpServer);
@@ -13,17 +21,14 @@ namespace socks {
       // TODO: 错误处理
       return;
     }
-    TcpConnectionPtr conn = std::make_shared<TcpConnection> (tcpServer->getLoop());
+    TcpConnectionPtr conn = std::make_shared<TcpConnection>(tcpServer->getLoop(), tcpServer->getNextId());
     tcpServer->addTcpConnection(conn);
-    if (tcpServer->connectionMap_.find(0) != tcpServer->connectionMap_.end()) {
-      auto c = tcpServer->connectionMap_[0];
-      BOOST_LOG_TRIVIAL(debug) << "buf size is "<<  sizeof(c->buf);
-    }
-
+    
     if (!uv_accept(server, conn->stream())) {
       conn->setMessageCallback(tcpServer->messageCallback);
       conn->setConnectionCallback(tcpServer->connectionCallback);
       conn->connectionEstablished();
+      conn->setCloseCallback(std::bind(closeConnection, tcpServer, _1));
       conn->readStart();
     }
 
