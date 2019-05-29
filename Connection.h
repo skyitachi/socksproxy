@@ -14,9 +14,9 @@
 #include <stdlib.h>
 #include <chrono>
 #include <boost/log/trivial.hpp>
+#include <http_parser.h>
 #include "util.h"
 #include "HttpHeader.h"
-#include "http-parser/http_parser.h"
 
 #define SOCKS4A_HEADER_LENGTH 9
 // Connection should be EventListener

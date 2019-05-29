@@ -52,7 +52,7 @@ namespace socks {
     ~TcpServer() {
       auto uv_tcp = tcp_.release();
       uv_close((uv_handle_t* )uv_tcp, [](uv_handle_t* handle) {
-        free(handle);
+        delete handle;
       });
     }
     MessageCallback messageCallback;

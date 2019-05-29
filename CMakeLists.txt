@@ -1,10 +1,18 @@
 cmake_minimum_required(VERSION 3.12)
 project(socksproxy)
 
-include_directories(./deps)
 include_directories(/usr/local/include)
-#link_libraries(/usr/local/lib)
-link_directories(/usr/local/lib)
+
+include_directories(./deps/http-parser)
+
+IF (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  # debug version libuv
+  include_directories(./deps/libuv/include)
+  link_directories(./deps/libuv)
+ENDIF()
+
+# link_libraries(/usr/local/lib)
+# link_directories(/usr/local/lib)
 
 set(CMAKE_CXX_STANDARD 14)
 # 使用cmake dynamic link

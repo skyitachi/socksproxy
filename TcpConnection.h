@@ -61,7 +61,7 @@ class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
     ~TcpConnection() {
       auto raw = tcp_.release();
       uv_close((uv_handle_t *) raw, [](uv_handle_t* handle) {
-        free(handle);
+        delete handle;
       });
     }
     
