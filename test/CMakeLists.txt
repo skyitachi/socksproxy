@@ -9,7 +9,7 @@ target_link_libraries(test gtest gmock)
 
 # link_directories(../deps/libuv)
 
-add_executable(test_tcp_connection test_tcp_connection.cpp ../TcpConnection.cpp ../TcpServer.cpp)
+add_executable(test_tcp_connection test_tcp_connection.cpp ../TcpConnection.cpp ../TcpServer.cpp ../TcpClient.cpp)
 
 IF (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     target_link_libraries(test_tcp_connection uv boost_log-mt)

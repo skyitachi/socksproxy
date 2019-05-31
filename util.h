@@ -27,6 +27,15 @@ static const Addr parseAddr(const char *buf, ssize_t offset) {
   return addr;
 }
 
+class NoCopyable {
+public:
+  NoCopyable() = default;
+  NoCopyable(const NoCopyable&) = delete;
+  NoCopyable&operator=(const NoCopyable&) = delete;
+  ~NoCopyable() = default;
 };
+
+};
+
 };
 #endif //SOCKSPROXY_UTIL_H

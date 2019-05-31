@@ -9,9 +9,12 @@
 #include <memory>
 #include <functional>
 #include <boost/log/trivial.hpp>
+#include "util.h"
 
 namespace socks {
-class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
+class TcpConnection:
+    socks::util::NoCopyable,
+    public std::enable_shared_from_this<TcpConnection> {
   public:
   
     typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
@@ -47,8 +50,11 @@ class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
     void connectionEstablished() {
       connectionCallback_(shared_from_this());
     }
-    
+  
+    // shutdown
+    int shutdown();
     void readStart();
+    void readStop();
     
     void handleMessage(char* buf, ssize_t len) {
       messageCallback_(shared_from_this(), buf, len);
@@ -68,8 +74,18 @@ class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
     int id() {
       return id_;
     }
+    
     char buf[4096];
-  
+ 
+    void setState(StateE state) {
+      state_ = state;
+    }
+    
+    int send(const char *, size_t);
+    int send(const std::string& data) {
+      return send(data.c_str(), (size_t)data.size());
+    }
+    
   private:
     uv_loop_t *loop_;
     std::unique_ptr<uv_tcp_t> tcp_;
@@ -77,6 +93,7 @@ class TcpConnection: public std::enable_shared_from_this<TcpConnection> {
     MessageCallback messageCallback_;
     CloseCallback closeCallback_;
     int id_;
+    StateE state_;
   };
   
   typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
