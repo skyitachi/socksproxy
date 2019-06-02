@@ -18,13 +18,22 @@ namespace socks {
     if (nread < 0) {
       BOOST_LOG_TRIVIAL(info) << "close connection " << conn->id() << " passively";
       conn->handleClose();
+    } else if (nread == 0) {
+      BOOST_LOG_TRIVIAL(info) << conn->id() << " read 0 bytes";
+      // TODO: read = 0 意味着什么
+      conn->close();
     } else {
       conn->handleMessage(buf->base, nread);
     }
   }
   
-  void TcpConnection::readStart() {
-    uv_read_start(stream(), on_uv_alloc, on_uv_read);
+  int TcpConnection::readStart() {
+    return uv_read_start(stream(), on_uv_alloc, on_uv_read);
+  }
+  
+  int TcpConnection::readStop() {
+    BOOST_LOG_TRIVIAL(debug) << "conn " << id() << " stop read";
+    return uv_read_stop(stream());
   }
   
   int TcpConnection::send(const char *sendBuf, size_t len) {
@@ -44,6 +53,7 @@ namespace socks {
     });
   }
   
+  // stop write
   int TcpConnection::shutdown() {
     return uv_shutdown(new uv_shutdown_t, stream(), [](uv_shutdown_t* req, int status) {
       std::unique_ptr<uv_shutdown_t> reqHolder(req);
@@ -54,5 +64,19 @@ namespace socks {
       }
       BOOST_LOG_TRIVIAL(info) << "connection " << conn->id() << "shutdown write";
     });
+  }
+  
+  // when read 0 size then close
+  void TcpConnection::close() {
+    handleClose();
+  }
+  
+  void TcpConnection::handleClose() {
+    assert(state_ == kConnected || state_ == kConnecting);
+    // TODO: 是否要判断当前的write是否被写完
+    setState(kDisconnectd);
+    readStop();
+    // TODO: need connectionCallback?
+    closeCallback_(shared_from_this());
   }
 }

@@ -7,18 +7,56 @@
 
 #include <memory>
 #include <uv.h>
+#include <unordered_map>
+#include "TcpConnection.h"
 #include "util.h"
 
 namespace socks {
   
   class TcpClient: socks::util::NoCopyable {
   public:
-    TcpClient(uv_loop_t* loop): loop_(loop), tcp_(std::make_unique<uv_tcp_t>()) {
-      uv_tcp_init(loop_, tcp_.get());
+    TcpClient(uv_loop_t* loop): loop_(loop), tcpPtr(std::make_unique<uv_tcp_t>()) {
+      tcpPtr->data = this;
+      uv_tcp_init(loop_, tcpPtr.get());
     }
+    
+    void setConnectionCallback(ConnectionCallback cb) {
+      connectionCallback = cb;
+    }
+    
+    void setMessageCallback(MessageCallback cb) {
+      messageCallback = cb;
+    }
+    
+    void connect(const std::string& host, int port);
+   
+    uv_stream_t* stream() {
+      return (uv_stream_t*) tcpPtr.get();
+    }
+    uv_loop_t* getLoop() {
+      return loop_;
+    }
+  
+    int getNextId() { return id_++; }
+    
+    ~TcpClient() {
+      BOOST_LOG_TRIVIAL(debug) << "in the TcpClient destructor";
+      if (tcpPtr == nullptr) return;
+      auto uv_tcp = tcpPtr.release();
+      uv_close((uv_handle_t* )uv_tcp, [](uv_handle_t* handle) {
+        delete handle;
+      });
+    }
+    
+    ConnectionCallback connectionCallback;
+    MessageCallback messageCallback;
+    
+    std::unique_ptr<uv_tcp_t> tcpPtr;
+    std::unordered_map<int, TcpConnectionPtr> connectionMap;
+    
   private:
     uv_loop_t* loop_;
-    std::unique_ptr<uv_tcp_t> tcp_;
+    int id_;
   };
 }
 

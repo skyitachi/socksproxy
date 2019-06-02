@@ -29,7 +29,17 @@ class TcpConnection:
     TcpConnection(uv_loop_t *loop, int id) : loop_(loop), id_(id), tcp_(std::make_unique<uv_tcp_t>()) {
       tcp_->data = this;
       uv_tcp_init(loop_, tcp_.get());
+      setState(kConnecting);
     }
+    
+    explicit TcpConnection(uv_loop_t* loop): TcpConnection(loop, 0) {}
+    
+    TcpConnection(uv_loop_t* loop, std::unique_ptr<uv_tcp_t>&& ptr, int id): TcpConnection(loop, id) {
+      // NOTE: 需要用move
+      tcp_ = std::move(ptr);
+    }
+    
+    TcpConnection(uv_loop_t* loop, std::unique_ptr<uv_tcp_t>&& ptr): TcpConnection(loop, std::move(ptr), 0) {}
   
     void setCloseCallback(CloseCallback cb) {
       closeCallback_ = cb;
@@ -48,23 +58,27 @@ class TcpConnection:
     }
     
     void connectionEstablished() {
+      setState(kConnected);
       connectionCallback_(shared_from_this());
     }
   
     // shutdown
     int shutdown();
-    void readStart();
-    void readStop();
+    // 主动关闭链接
+    void close();
+    int readStart();
+    int readStop();
     
     void handleMessage(char* buf, ssize_t len) {
       messageCallback_(shared_from_this(), buf, len);
     }
     
-    void handleClose() {
-      closeCallback_(shared_from_this());
-    }
+    void handleClose();
     
     ~TcpConnection() {
+      BOOST_LOG_TRIVIAL(info) << "in the TcpConnection destructor";
+      // tcp_所有权已经被转移
+      if (tcp_ == nullptr) return;
       auto raw = tcp_.release();
       uv_close((uv_handle_t *) raw, [](uv_handle_t* handle) {
         delete handle;
