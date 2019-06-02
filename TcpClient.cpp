@@ -32,7 +32,7 @@ namespace socks {
       );
       
       tcpClient->connectionMap[conn->id()] = conn;
-      
+      BOOST_LOG_TRIVIAL(info) << conn->id() << " add to the map";
       conn->setConnectionCallback(tcpClient->connectionCallback);
       conn->setMessageCallback(tcpClient->messageCallback);
       conn->setCloseCallback(std::bind(closeConnection, tcpClient, _1));

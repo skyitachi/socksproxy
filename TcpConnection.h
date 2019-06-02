@@ -16,7 +16,8 @@ class TcpConnection:
     socks::util::NoCopyable,
     public std::enable_shared_from_this<TcpConnection> {
   public:
-  
+
+    typedef std::unique_ptr<uv_tcp_t> TcpUniquePtr;
     typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
     typedef std::function<void (const TcpConnectionPtr& )> ConnectionCallback;
     typedef std::function<void (const TcpConnectionPtr&, char *buf, ssize_t len)> MessageCallback;
@@ -34,12 +35,18 @@ class TcpConnection:
     
     explicit TcpConnection(uv_loop_t* loop): TcpConnection(loop, 0) {}
     
-    TcpConnection(uv_loop_t* loop, std::unique_ptr<uv_tcp_t>&& ptr, int id): TcpConnection(loop, id) {
+    TcpConnection(uv_loop_t* loop, TcpUniquePtr && ptr, int id):
+      loop_(loop), id_(id) {
       // NOTE: 需要用move
       tcp_ = std::move(ptr);
+      // 由于是 move 过来的默认已经初始化过了
+      // NOTE: change context to this
+      tcp_->data = this;
+      setState(kConnecting);
     }
     
-    TcpConnection(uv_loop_t* loop, std::unique_ptr<uv_tcp_t>&& ptr): TcpConnection(loop, std::move(ptr), 0) {}
+    TcpConnection(uv_loop_t* loop, TcpUniquePtr&& ptr):
+      TcpConnection(loop, std::move(ptr), 0) {}
   
     void setCloseCallback(CloseCallback cb) {
       closeCallback_ = cb;
@@ -76,9 +83,6 @@ class TcpConnection:
     void handleClose();
     
     ~TcpConnection() {
-      BOOST_LOG_TRIVIAL(info) << "in the TcpConnection destructor";
-      // tcp_所有权已经被转移
-      if (tcp_ == nullptr) return;
       auto raw = tcp_.release();
       uv_close((uv_handle_t *) raw, [](uv_handle_t* handle) {
         delete handle;

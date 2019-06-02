@@ -40,7 +40,6 @@ namespace socks {
     int getNextId() { return id_++; }
     
     ~TcpClient() {
-      BOOST_LOG_TRIVIAL(debug) << "in the TcpClient destructor";
       if (tcpPtr == nullptr) return;
       auto uv_tcp = tcpPtr.release();
       uv_close((uv_handle_t* )uv_tcp, [](uv_handle_t* handle) {
