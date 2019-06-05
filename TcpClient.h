@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <uv.h>
-#include <unordered_map>
 #include "TcpConnection.h"
 #include "util.h"
 
@@ -18,6 +17,7 @@ namespace socks {
     TcpClient(uv_loop_t* loop): loop_(loop), tcpPtr(std::make_unique<uv_tcp_t>()) {
       tcpPtr->data = this;
       uv_tcp_init(loop_, tcpPtr.get());
+      id_ = 0;
     }
     
     void setConnectionCallback(ConnectionCallback cb) {

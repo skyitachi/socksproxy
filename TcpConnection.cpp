@@ -61,9 +61,10 @@ namespace socks {
       auto conn = (TcpConnection *)req->handle->data;
       assert(conn);
       if (status < 0) {
+        // TODO: 错误处理
         return;
       }
-      BOOST_LOG_TRIVIAL(info) << "connection " << conn->id() << "shutdown write";
+      BOOST_LOG_TRIVIAL(info) << "connection " << conn->id() << " shutdown write";
     });
   }
   
