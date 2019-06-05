@@ -24,7 +24,7 @@ class TcpConnection:
     typedef std::function<void (const TcpConnectionPtr&) > CloseCallback;
     
     enum StateE {
-      kConnecting, kConnected, kDisconnectd, kDisconnecting
+      kConnecting, kConnected, kDisconnected, kDisconnecting
     };
     
     TcpConnection(uv_loop_t *loop, int id) : loop_(loop), id_(id), tcp_(std::make_unique<uv_tcp_t>()) {
@@ -100,8 +100,17 @@ class TcpConnection:
     }
     
     int send(const char *, size_t);
+    
     int send(const std::string& data) {
       return send(data.c_str(), (size_t)data.size());
+    }
+    
+    bool connected() {
+      return state_ == kConnected;
+    }
+    
+    bool disconnected() {
+      return state_ == kDisconnected;
     }
     
   private:

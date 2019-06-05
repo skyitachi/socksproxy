@@ -8,9 +8,8 @@ namespace socks {
   using namespace std::placeholders;
   
   static void closeConnection(TcpClient* tcpClient, const TcpConnectionPtr& conn) {
-    BOOST_LOG_TRIVIAL(info) << "delete conn " << conn->id();
-    assert(tcpClient->connectionMap.find(conn->id()) != tcpClient->connectionMap.end());
-    tcpClient->connectionMap.erase(conn->id());
+    BOOST_LOG_TRIVIAL(debug) << "delete conn " << conn->id();
+    // NOTE: 不能调用conn->close()
   }
   
   void TcpClient::connect(const std::string &host, int port) {
@@ -25,19 +24,21 @@ namespace socks {
       }
       auto tcpClient = (TcpClient *) req->handle->data;
       assert(tcpClient);
-      TcpConnectionPtr conn = std::make_shared<TcpConnection>(
+      tcpClient->connection = std::make_shared<TcpConnection>(
         tcpClient->getLoop(),
         std::move(tcpClient->tcpPtr),
         tcpClient->getNextId()
       );
-      
-      tcpClient->connectionMap[conn->id()] = conn;
-      BOOST_LOG_TRIVIAL(info) << conn->id() << " add to the map";
-      conn->setConnectionCallback(tcpClient->connectionCallback);
-      conn->setMessageCallback(tcpClient->messageCallback);
-      conn->setCloseCallback(std::bind(closeConnection, tcpClient, _1));
-      conn->connectionEstablished();
-      conn->readStart();
+      tcpClient->connection->setConnectionCallback(tcpClient->connectionCallback);
+      tcpClient->connection->setMessageCallback(tcpClient->messageCallback);
+      tcpClient->connection->setCloseCallback(std::bind(closeConnection, tcpClient, _1));
+      tcpClient->connection->connectionEstablished();
+      tcpClient->connection->readStart();
     });
+  }
+  
+  void TcpClient::disconnect() {
+    assert(connection != nullptr && connection->connected());
+    connection->shutdown();
   }
 }

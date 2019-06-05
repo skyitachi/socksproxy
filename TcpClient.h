@@ -29,7 +29,9 @@ namespace socks {
     }
     
     void connect(const std::string& host, int port);
-   
+  
+    void disconnect();
+    
     uv_stream_t* stream() {
       return (uv_stream_t*) tcpPtr.get();
     }
@@ -51,7 +53,7 @@ namespace socks {
     MessageCallback messageCallback;
     
     std::unique_ptr<uv_tcp_t> tcpPtr;
-    std::unordered_map<int, TcpConnectionPtr> connectionMap;
+    TcpConnectionPtr connection;
     
   private:
     uv_loop_t* loop_;

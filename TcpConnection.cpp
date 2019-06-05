@@ -19,7 +19,7 @@ namespace socks {
       BOOST_LOG_TRIVIAL(info) << "close connection " << conn->id() << " passively";
       conn->handleClose();
     } else if (nread == 0) {
-      BOOST_LOG_TRIVIAL(info) << conn->id() << " read 0 bytes";
+      BOOST_LOG_TRIVIAL(debug) << conn->id() << " read 0 bytes";
       // TODO: read = 0 意味着什么
       conn->close();
     } else {
@@ -39,17 +39,18 @@ namespace socks {
   int TcpConnection::send(const char *sendBuf, size_t len) {
     // write_req 这类的对象不需要传递data，使用handle->data即可
     uv_buf_t uv_buf = uv_buf_init(const_cast<char *>(sendBuf), len);
+    // NOTE: 如果使用uv_try_write就需要自己管理output buffer了, try_write不会queue write request
     return uv_write(new uv_write_t, stream(), &uv_buf, 1, [](uv_write_t* req, int status) {
       // 留给unique_ptr自动管理
       std::unique_ptr<uv_write_t> reqHolder(req);
       auto conn = (TcpConnection *)req->handle->data;
       assert(conn);
       if (status < 0) {
-        //TODO:
         BOOST_LOG_TRIVIAL(error) << "connection write error " << uv_strerror(status);
         conn->handleClose();
         return;
       }
+      // TODO: writeCompleteCallback
     });
   }
   
@@ -74,9 +75,9 @@ namespace socks {
   void TcpConnection::handleClose() {
     assert(state_ == kConnected || state_ == kConnecting);
     // TODO: 是否要判断当前的write是否被写完
-    setState(kDisconnectd);
+    setState(kDisconnected);
     readStop();
-    // TODO: need connectionCallback?
+    connectionCallback_(shared_from_this());
     closeCallback_(shared_from_this());
   }
 }
