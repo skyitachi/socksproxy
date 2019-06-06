@@ -29,9 +29,17 @@ namespace socks {
         std::move(tcpClient->tcpPtr),
         tcpClient->getNextId()
       );
-      tcpClient->connection->setConnectionCallback(tcpClient->connectionCallback);
-      tcpClient->connection->setMessageCallback(tcpClient->messageCallback);
+      if (tcpClient->connectionCallback) {
+        tcpClient->connection->setConnectionCallback(tcpClient->connectionCallback);
+      }
+      if (tcpClient->messageCallback) {
+        tcpClient->connection->setMessageCallback(tcpClient->messageCallback);
+      }
+      if (tcpClient->writeCompleteCallback) {
+        tcpClient->connection->setWriteCompleteCallback(tcpClient->writeCompleteCallback);
+      }
       tcpClient->connection->setCloseCallback(std::bind(closeConnection, tcpClient, _1));
+      
       tcpClient->connection->connectionEstablished();
       tcpClient->connection->readStart();
     });

@@ -22,6 +22,7 @@ class TcpConnection:
     typedef std::function<void (const TcpConnectionPtr& )> ConnectionCallback;
     typedef std::function<void (const TcpConnectionPtr&, char *buf, ssize_t len)> MessageCallback;
     typedef std::function<void (const TcpConnectionPtr&) > CloseCallback;
+    typedef std::function<void (const TcpConnectionPtr&) > WriteCompleteCallback;
     
     enum StateE {
       kConnecting, kConnected, kDisconnected, kDisconnecting
@@ -49,15 +50,19 @@ class TcpConnection:
       TcpConnection(loop, std::move(ptr), 0) {}
   
     void setCloseCallback(CloseCallback cb) {
-      closeCallback_ = cb;
+      closeCallback_ = std::move(cb);
     }
     
     void setConnectionCallback(ConnectionCallback cb) {
-      connectionCallback_ = cb;
+      connectionCallback_ = std::move(cb);
     }
     
     void setMessageCallback(MessageCallback cb) {
-      messageCallback_ = cb;
+      messageCallback_ = std::move(cb);
+    }
+    
+    void setWriteCompleteCallback(WriteCompleteCallback cb) {
+      writeCompleteCallback_ = std::move(cb);
     }
     
     uv_stream_t* stream() {
@@ -66,7 +71,9 @@ class TcpConnection:
     
     void connectionEstablished() {
       setState(kConnected);
-      connectionCallback_(shared_from_this());
+      if (connectionCallback_) {
+        connectionCallback_(shared_from_this());
+      }
     }
   
     // shutdown
@@ -77,7 +84,18 @@ class TcpConnection:
     int readStop();
     
     void handleMessage(char* buf, ssize_t len) {
-      messageCallback_(shared_from_this(), buf, len);
+      bytesRead_ += len;
+      if (messageCallback_) {
+        messageCallback_(shared_from_this(), buf, len);
+      }
+    }
+    
+    void handleWrite(ssize_t len) {
+      bytesWritten_ += len;
+      BOOST_LOG_TRIVIAL(info) << "in the writeCompleteCallback";
+      if (writeCompleteCallback_) {
+        writeCompleteCallback_(shared_from_this());
+      }
     }
     
     void handleClose();
@@ -113,19 +131,41 @@ class TcpConnection:
       return state_ == kDisconnected;
     }
     
+    int bytesRead() {
+      return bytesRead_;
+    }
+    
+    int bytesWritten() {
+      return bytesWritten_;
+    }
+    
+    size_t lastWrite() {
+      return lastWrite_;
+    }
+    
+    void resetLastWrite() {
+      lastWrite_ = 0;
+    }
+    
   private:
     uv_loop_t *loop_;
     std::unique_ptr<uv_tcp_t> tcp_;
     ConnectionCallback connectionCallback_;
     MessageCallback messageCallback_;
     CloseCallback closeCallback_;
+    WriteCompleteCallback writeCompleteCallback_;
     int id_;
     StateE state_;
+    int bytesRead_ = 0;
+    int bytesWritten_ = 0;
+    size_t lastWrite_;
+    
   };
   
   typedef std::shared_ptr<TcpConnection> TcpConnectionPtr;
   typedef std::function<void (const TcpConnectionPtr& )> ConnectionCallback;
   typedef std::function<void (const TcpConnectionPtr&, char *buf, ssize_t len)> MessageCallback;
   typedef std::function<void (const TcpConnectionPtr&) > CloseCallback;
+  typedef std::function<void (const TcpConnectionPtr&) > WriteCompleteCallback;
 }
 #endif //SOCKSPROXY_TCPCONNECTION_H

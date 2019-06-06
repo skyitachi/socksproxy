@@ -38,7 +38,10 @@ namespace socks {
   
   int TcpConnection::send(const char *sendBuf, size_t len) {
     // write_req 这类的对象不需要传递data，使用handle->data即可
+    assert(state_ == kConnected);
+    lastWrite_ = len;
     uv_buf_t uv_buf = uv_buf_init(const_cast<char *>(sendBuf), len);
+    
     // NOTE: 如果使用uv_try_write就需要自己管理output buffer了, try_write不会queue write request
     return uv_write(new uv_write_t, stream(), &uv_buf, 1, [](uv_write_t* req, int status) {
       // 留给unique_ptr自动管理
@@ -50,7 +53,8 @@ namespace socks {
         conn->handleClose();
         return;
       }
-      // TODO: writeCompleteCallback
+      conn->handleWrite(conn->lastWrite());
+      conn->resetLastWrite();
     });
   }
   
@@ -63,7 +67,7 @@ namespace socks {
       if (status < 0) {
         return;
       }
-      BOOST_LOG_TRIVIAL(info) << "connection " << conn->id() << "shutdown write";
+      BOOST_LOG_TRIVIAL(info) << "connection " << conn->id() << " shutdown write";
     });
   }
   
