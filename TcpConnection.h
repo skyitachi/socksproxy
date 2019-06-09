@@ -9,6 +9,7 @@
 #include <memory>
 #include <functional>
 #include <boost/log/trivial.hpp>
+#include <string>
 #include "util.h"
 
 namespace socks {
@@ -63,6 +64,38 @@ class TcpConnection:
     
     void setWriteCompleteCallback(WriteCompleteCallback cb) {
       writeCompleteCallback_ = std::move(cb);
+    }
+    
+    std::string getPeerAddr() {
+      assert(state_ == kConnected);
+      sockaddr_storage storage;
+      int len;
+      uv_tcp_getpeername(tcp_.get(), (sockaddr*)&storage, &len);
+      if (storage.ss_family == AF_INET6) {
+        // ipv6
+        char decoded[46];
+        uv_ip6_name((sockaddr_in6*)&storage, decoded, sizeof(decoded));
+        return std::string(decoded);
+      }
+      char decoded[16];
+      uv_ip4_name((sockaddr_in*)&storage, decoded, sizeof(decoded));
+      return std::string(decoded);
+    }
+    
+    std::string getLocalAddr() {
+      assert(state_ == kConnected);
+      sockaddr_storage storage;
+      int len;
+      uv_tcp_getsockname(tcp_.get(), (sockaddr*)&storage, &len);
+      if (storage.ss_family == AF_INET6) {
+        // ipv6
+        char decoded[46];
+        uv_ip6_name((sockaddr_in6*)&storage, decoded, sizeof(decoded));
+        return std::string(decoded);
+      }
+      char decoded[16];
+      uv_ip4_name((sockaddr_in*)&storage, decoded, sizeof(decoded));
+      return std::string(decoded);
     }
     
     uv_stream_t* stream() {
