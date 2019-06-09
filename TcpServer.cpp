@@ -34,12 +34,15 @@ namespace socks {
 
   }
 
-  int TcpServer::Listen(const std::string host, int port) {
+  int TcpServer::listen(const std::string host, int port) {
     sockaddr_in sockaddrIn;
     uv_ip4_addr(host.c_str(), port, &sockaddrIn);
     // TODO 错误处理
     uv_tcp_bind(tcp_.get(), (const sockaddr*)&sockaddrIn, 0);
-    uv_listen(stream(), 1024, on_uv_connection);
+    int ret = uv_listen(stream(), 1024, on_uv_connection);
+    if (ret) {
+      return ret;
+    }
     return uv_run(loop_, UV_RUN_DEFAULT);
   }
 }

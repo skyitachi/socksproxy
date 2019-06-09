@@ -21,11 +21,15 @@ namespace socks {
     }
     
     void setConnectionCallback(ConnectionCallback cb) {
-      connectionCallback = cb;
+      connectionCallback = std::move(cb);
     }
     
     void setMessageCallback(MessageCallback cb) {
-      messageCallback = cb;
+      messageCallback = std::move(cb);
+    }
+    
+    void setWriteCompleteCallback(WriteCompleteCallback cb) {
+      writeCompleteCallback = std::move(cb);
     }
     
     void connect(const std::string& host, int port);
@@ -51,6 +55,7 @@ namespace socks {
     
     ConnectionCallback connectionCallback;
     MessageCallback messageCallback;
+    WriteCompleteCallback writeCompleteCallback;
     
     std::unique_ptr<uv_tcp_t> tcpPtr;
     TcpConnectionPtr connection;

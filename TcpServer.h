@@ -22,7 +22,7 @@ namespace socks {
       id_ = 0;
     }
 
-    int Listen(const std::string host, int port);
+    int listen(const std::string host, int port);
 
     void setMessageCallback(MessageCallback cb) {
       messageCallback = cb;
