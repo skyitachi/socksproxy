@@ -21,7 +21,7 @@ int main() {
   
   server.setConnectionCallback([](const TcpConnectionPtr& ptr) {
     if (ptr->connected()) {
-      BOOST_LOG_TRIVIAL(info) << "remote " << ptr->getPeerAddr() << " has connected to " << ptr->getLocalAddr();
+      BOOST_LOG_TRIVIAL(info) << "remote " << ptr->getPeerAddress() << " has connected to " << ptr->getLocalAddress();
     } else {
       BOOST_LOG_TRIVIAL(info) << "client disconnected ";
     }

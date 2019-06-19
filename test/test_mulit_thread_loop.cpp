@@ -14,6 +14,6 @@ void onLoopCreated(uv_loop_t *loop) {
 
 int main() {
   EventLoopThread loopThread(onLoopCreated);
-  loopThread.startLoop();
+  uv_loop_t* loop = loopThread.startLoop();
 }
 

@@ -66,36 +66,20 @@ class TcpConnection:
       writeCompleteCallback_ = std::move(cb);
     }
     
-    std::string getPeerAddr() {
+    std::string getPeerAddress() {
       assert(state_ == kConnected);
       sockaddr_storage storage;
       int len;
       uv_tcp_getpeername(tcp_.get(), (sockaddr*)&storage, &len);
-      if (storage.ss_family == AF_INET6) {
-        // ipv6
-        char decoded[46];
-        uv_ip6_name((sockaddr_in6*)&storage, decoded, sizeof(decoded));
-        return std::string(decoded);
-      }
-      char decoded[16];
-      uv_ip4_name((sockaddr_in*)&storage, decoded, sizeof(decoded));
-      return std::string(decoded);
+      return formatAddr(&storage);
     }
     
-    std::string getLocalAddr() {
+    std::string getLocalAddress() {
       assert(state_ == kConnected);
       sockaddr_storage storage;
       int len;
       uv_tcp_getsockname(tcp_.get(), (sockaddr*)&storage, &len);
-      if (storage.ss_family == AF_INET6) {
-        // ipv6
-        char decoded[46];
-        uv_ip6_name((sockaddr_in6*)&storage, decoded, sizeof(decoded));
-        return std::string(decoded);
-      }
-      char decoded[16];
-      uv_ip4_name((sockaddr_in*)&storage, decoded, sizeof(decoded));
-      return std::string(decoded);
+      return formatAddr(&storage);
     }
     
     uv_stream_t* stream() {
@@ -192,6 +176,21 @@ class TcpConnection:
     int bytesRead_ = 0;
     int bytesWritten_ = 0;
     size_t lastWrite_;
+
+    std::string formatAddr(const sockaddr_storage* storage) {
+      const sockaddr_in *sockaddrIn = (const sockaddr_in*) storage;
+      uint16_t port = ntohs(sockaddrIn->sin_port);
+      if (storage->ss_family == AF_INET6) {
+        // ipv6
+        char decoded[46];
+        uv_ip6_name((sockaddr_in6*)storage, decoded, sizeof(decoded));
+        // port
+        return std::string(decoded) + ":" + std::to_string(port);
+      }
+      char decoded[16];
+      uv_ip4_name((sockaddr_in*)storage, decoded, sizeof(decoded));
+      return std::string(decoded) + ":" + std::to_string(port);
+    }
     
   };
   
