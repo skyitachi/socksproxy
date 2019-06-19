@@ -24,6 +24,7 @@ namespace socks {
     TcpConnectionPtr conn = std::make_shared<TcpConnection>(tcpServer->getLoop(), tcpServer->getNextId());
     tcpServer->addTcpConnection(conn);
     
+    // TODO: uv_accept是线程安全的吗
     if (!uv_accept(server, conn->stream())) {
       conn->setMessageCallback(tcpServer->messageCallback);
       conn->setConnectionCallback(tcpServer->connectionCallback);
