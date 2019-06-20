@@ -11,7 +11,7 @@ target_link_libraries(test gtest gmock)
 
 add_executable(test_tcp_client test_tcp_connection.cpp ../TcpConnection.cpp ../TcpClient.cpp)
 add_executable(test_tcp_server test_tcp_server.cpp ../TcpConnection.cpp ../TcpServer.cpp)
-add_executable(test_multi_thread_loop test_mulit_thread_loop.cpp ../EventLoop.cpp ../EventLoopThread.cpp)
+add_executable(test_multi_thread_loop test_multi_thread_loop.cpp ../TcpConnection.cpp ../TcpServer.cpp ../EventLoop.cpp ../EventLoopThread.cpp ../EventLoopThreadPool.cpp)
 
 IF (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     target_link_libraries(test_tcp_client uv boost_log-mt)
