@@ -164,6 +164,8 @@ class TcpConnection:
       lastWrite_ = 0;
     }
     
+    void attachToLoop(uv_loop_t* loop);
+    
   private:
     uv_loop_t *loop_;
     std::unique_ptr<uv_tcp_t> tcp_;

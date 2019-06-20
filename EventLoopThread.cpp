@@ -25,6 +25,7 @@ namespace socks {
     }
     started_ = true;
     condition_.notify_one();
+    BOOST_LOG_TRIVIAL(info) << "thread " << std::this_thread::get_id() << " started";
     // busy wait
     while(true) {
       int r = uv_run(loop_, UV_RUN_DEFAULT);
