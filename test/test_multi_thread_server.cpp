@@ -10,7 +10,7 @@ using namespace socks;
 
 int main() {
   TcpServer server(uv_default_loop());
-  server.setNumberThreads(4);
+  server.setThreadNums(4);
   
   server.setMessageCallback([](const TcpConnectionPtr& ptr, char* buf, ssize_t len) {
     BOOST_LOG_TRIVIAL(info) << "current thread id " << std::this_thread::get_id();

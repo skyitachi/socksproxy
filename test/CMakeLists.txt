@@ -10,7 +10,7 @@ target_link_libraries(test gtest gmock)
 # link_directories(../deps/libuv)
 
 add_executable(test_tcp_client test_tcp_connection.cpp ../TcpConnection.cpp ../TcpClient.cpp)
-add_executable(test_tcp_server test_tcp_server.cpp ../TcpConnection.cpp ../TcpServer.cpp)
+add_executable(test_tcp_server test_tcp_server.cpp ../TcpConnection.cpp ../TcpServer.cpp ../EventLoop.cpp ../EventLoopThread.cpp ../EventLoopThreadPool.cpp)
 add_executable(test_multi_thread_loop test_multi_thread_loop.cpp ../TcpConnection.cpp ../TcpServer.cpp ../EventLoop.cpp ../EventLoopThread.cpp ../EventLoopThreadPool.cpp)
 add_executable(test_multi_thread_server test_multi_thread_server.cpp ../TcpConnection.cpp ../TcpServer.cpp ../EventLoopThread.cpp ../EventLoopThreadPool.cpp)
 

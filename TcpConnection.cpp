@@ -87,15 +87,16 @@ namespace socks {
   }
   
   void TcpConnection::attachToLoop(uv_loop_t *newLoop) {
-    assert(newLoop != loop_);
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t*)tcp_.get(), &fd);
-    BOOST_LOG_TRIVIAL(debug) << "get system fd: " << fd;
-    tcp_.reset(new uv_tcp_t);
-    uv_tcp_init(newLoop, tcp_.get());
-    assert(tcp_->loop == newLoop);
-    uv_tcp_open(tcp_.get(), fd);
-    tcp_->data = this;
-    loop_ = newLoop;
+    if (newLoop != loop_) {
+      uv_os_fd_t fd;
+      uv_fileno((uv_handle_t*)tcp_.get(), &fd);
+      BOOST_LOG_TRIVIAL(debug) << "get system fd: " << fd;
+      tcp_.reset(new uv_tcp_t);
+      uv_tcp_init(newLoop, tcp_.get());
+      assert(tcp_->loop == newLoop);
+      uv_tcp_open(tcp_.get(), fd);
+      tcp_->data = this;
+      loop_ = newLoop;
+    }
   }
 }

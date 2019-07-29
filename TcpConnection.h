@@ -109,8 +109,8 @@ class TcpConnection:
     
     void handleWrite(ssize_t len) {
       bytesWritten_ += len;
-      BOOST_LOG_TRIVIAL(info) << "in the writeCompleteCallback";
       if (writeCompleteCallback_) {
+        BOOST_LOG_TRIVIAL(debug) << "in the writeCompleteCallback";
         writeCompleteCallback_(shared_from_this());
       }
     }

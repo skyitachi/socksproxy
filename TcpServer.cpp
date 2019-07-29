@@ -34,7 +34,6 @@ namespace socks {
     
     // NOTE: uv_accept放到一个线程里做
     if (!uv_accept(server, conn->stream())) {
-      // TODO: why not take effect
       uv_loop_t* workerLoop = tcpServer->getWorkerLoop();
       conn->attachToLoop(workerLoop);
       conn->setMessageCallback(tcpServer->messageCallback);

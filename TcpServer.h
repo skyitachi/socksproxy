@@ -2,85 +2,63 @@
 // Created by skyitachi on 2019/5/28.
 //
 
-#ifndef SOCKSPROXY_TCPSERVER_H
-#define SOCKSPROXY_TCPSERVER_H
-
-#include <uv.h>
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <boost/log/trivial.hpp>
-#include "TcpConnection.h"
-#include "EventLoopThreadPool.h"
+#include "TcpServer.h"
 
 namespace socks {
-  class TcpServer {
-  public:
 
-    TcpServer(uv_loop_t* loop): loop_(loop), tcp_(std::make_unique<uv_tcp_t>()), pool_(loop) {
-      tcp_->data = this;
-      uv_tcp_init(loop_, tcp_.get());
-      id_ = 0;
-      // 默认使用baseLoop
-      pool_.setThreadNums(0);
+  using namespace std::placeholders;
+  
+  static void onAsyncCb(uv_async_t* asyncHandle) {
+    auto conn = *static_cast<TcpConnectionPtr*> (asyncHandle->data);
+    assert(conn);
+    conn->connectionEstablished();
+    free(asyncHandle);
+  }
+  
+  static void closeConnection(TcpServer* server, const TcpConnectionPtr& conn) {
+    BOOST_LOG_TRIVIAL(info) << "delete conn " << conn->id() << " from connectionMap";
+    assert(server->connectionMap_.find(conn->id()) != server->connectionMap_.end());
+    server->connectionMap_.erase(conn->id());
+  }
+  
+  static void on_uv_connection(uv_stream_t* server, int status) {
+    auto tcpServer = (TcpServer*) server->data;
+    assert(tcpServer);
+    if (status < 0) {
+      // TODO: 错误处理
+      return;
     }
-
-    int listen(const std::string host, int port);
-
-    void setMessageCallback(MessageCallback cb) {
-      messageCallback = cb;
-    }
-
-    void setConnectionCallback(ConnectionCallback cb) {
-      connectionCallback = cb;
-    }
-
-    int getNextId() {
-      return id_++;
-    }
-
-    uv_stream_t* stream() {
-      return (uv_stream_t* )tcp_.get();
-    }
-
-    uv_loop_t* getWorkerLoop() {
-      return pool_.getNextLoop();
-    }
+    uv_loop_t* mainLoop = tcpServer->getMainLoop();
+    TcpConnectionPtr conn = std::make_shared<TcpConnection>(mainLoop, tcpServer->getNextId());
+    tcpServer->addTcpConnection(conn);
     
-    uv_loop_t* getMainLoop() {
-      return loop_;
-    }
-    // 此处应该传入TcpConnectionPtr&
-    void addTcpConnection(const TcpConnectionPtr& conn) {
-      connectionMap_[conn->id()] = conn;
+    // NOTE: uv_accept放到一个线程里做
+    if (!uv_accept(server, conn->stream())) {
+      uv_loop_t* workerLoop = tcpServer->getWorkerLoop();
+      conn->attachToLoop(workerLoop);
+      conn->setMessageCallback(tcpServer->messageCallback);
+      conn->setConnectionCallback(tcpServer->connectionCallback);
+      // Note: connection callback called in loop thread
+      uv_async_t *task = (uv_async_t *)malloc(sizeof(uv_async_t));
+      task->data = &conn;
+      uv_async_init(workerLoop, task, onAsyncCb);
+      uv_async_send(task);
+      
+      conn->setCloseCallback(std::bind(closeConnection, tcpServer, _1));
+      conn->readStart();
     }
 
-    ~TcpServer() {
-      auto uv_tcp = tcp_.release();
-      uv_close((uv_handle_t* )uv_tcp, [](uv_handle_t* handle) {
-        delete handle;
-      });
-    }
-    
-    void setNumberThreads(int nums) {
-      pool_.setThreadNums(nums);
-    }
-    
-    
-    MessageCallback messageCallback;
-    ConnectionCallback connectionCallback;
-    
-    // public ?
-    std::unordered_map<int, TcpConnectionPtr> connectionMap_;
+  }
 
-  private:
-    int id_;
-    uv_loop_t* loop_;
-    std::unique_ptr<uv_tcp_t> tcp_;
-    EventLoopThreadPool pool_;
-  };
-
+  int TcpServer::listen(const std::string host, int port) {
+    sockaddr_in sockaddrIn;
+    uv_ip4_addr(host.c_str(), port, &sockaddrIn);
+    // TODO 错误处理
+    uv_tcp_bind(tcp_.get(), (const sockaddr*)&sockaddrIn, 0);
+    int ret = uv_listen(stream(), 1024, on_uv_connection);
+    if (ret) {
+      return ret;
+    }
+    return uv_run(loop_, UV_RUN_DEFAULT);
+  }
 }
-
-
-#endif //SOCKSPROXY_TCPSERVER_H

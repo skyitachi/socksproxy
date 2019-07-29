@@ -10,6 +10,7 @@
 
 using namespace socks;
 
+
 int main() {
   TcpServer server(uv_default_loop());
   server.setMessageCallback([](const TcpConnectionPtr& ptr, char* buf, ssize_t len) {
@@ -31,4 +32,3 @@ int main() {
     BOOST_LOG_TRIVIAL(error) << "server listen error " << uv_strerror(ret);
   }
 }
-
